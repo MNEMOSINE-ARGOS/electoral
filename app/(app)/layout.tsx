@@ -11,15 +11,15 @@ type Yo = { usuario: string; nombre: string; rol: "super" | "usuario" };
 type Item = { href: string; label: string; icon: typeof Vote; color: string };
 const GRUPOS: { titulo: string; items: Item[] }[] = [
   { titulo: "Resultados", items: [
-    { href: "/", label: "Resultados por cargo", icon: Vote, color: "#D81B60" },
+    { href: "/", label: "Resultados por cargo", icon: Vote, color: "#F0627A" },
+    { href: "/secciones", label: "Lectura por sección", icon: Grid3x3, color: "#D97706" },
+    { href: "/electorado", label: "Electorado", icon: Users, color: "#3D4558" },
     { href: "/historico", label: "Evolución y comparación", icon: LineIcon, color: "#7c3aed" },
-    { href: "/municipios", label: "Comparar territorios", icon: GitCompareArrows, color: "#3D4558" },
   ] },
   { titulo: "Territorio", items: [
     { href: "/estados", label: "Mapa nacional", icon: MapIcon, color: "#0E71AF" },
+    { href: "/municipios", label: "Comparar territorios", icon: GitCompareArrows, color: "#3D4558" },
     { href: "/distritos", label: "Distritos y circunscripciones", icon: Layers, color: "#0E71AF" },
-    { href: "/secciones", label: "Lectura por sección", icon: Grid3x3, color: "#D81B60" },
-    { href: "/electorado", label: "Electorado", icon: Users, color: "#3D4558" },
   ] },
   { titulo: "Poder Judicial", items: [{ href: "/judicial", label: "Elección judicial 2025", icon: Scale, color: "#7c3aed" }] },
 ];
