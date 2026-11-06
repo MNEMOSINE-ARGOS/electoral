@@ -143,10 +143,11 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
    - Empates exactos de primera fuerza: gana el nombre de bloque menor.
    - **Invariante**: `lib/tendencia.ts` debe dar exactamente lo mismo que el script del pipeline que llena `app_sec_tendencia` (comprobado: 154 secciones al azar, 16 indicadores idénticos). Si cambias la lógica en uno, cámbiala en el otro y vuelve a comparar.
 5. **Piso y techo** (`lib/pisoTecho.ts`).
-   - Menor y mayor % de votos a candidaturas del partido en las elecciones ordinarias del cargo en ese territorio de los **últimos 10 años** contados desde hoy (opción 20 años o todo el histórico).
-   - Un partido ausente o con 0 votos no cuenta como piso 0.
-   - **Votos aspirables hoy** = % de la lista nominal mínimo y máximo × lista nominal más reciente.
-   - Dos medidas: «con aliados» (la candidatura completa) y «votos propios» (solo su recuadro).
+   - Menor y mayor % de votos a candidaturas en las elecciones ordinarias de los **últimos 10 años** contados desde hoy (opción 20 años o todo), del cargo en ese territorio.
+   - **Partidos: solo sus votos propios** (su recuadro). **Nunca** se les suman los de su coalición; si fueron en coalición se marca el año (`coalicion_anios`).
+   - **Coaliciones: filas aparte**, una por combinación exacta de partidos (clave con componentes ordenados), con los votos de toda la alianza, solo en las elecciones en que compitió esa combinación. Por eso casi siempre tienen una sola elección.
+   - Ausente o con 0 votos no cuenta como piso 0.
+   - **Votos posibles hoy** = % de la lista nominal mínimo y máximo × lista nominal más reciente.
 6. **Estrategia por sección** (`EstrategiaSecciones`): bastión, ganada reñida, conquista nueva, perdida, objetivo al alcance o adversa (umbral de 10 puntos), con los votos que faltan para ganar y el potencial por participación. Sigue al partido de enfoque.
 
 ---
