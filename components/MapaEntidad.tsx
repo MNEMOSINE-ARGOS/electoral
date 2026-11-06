@@ -34,7 +34,7 @@ const LIMITES: Record<Limite, { t: string; corto: string; archivo: string | null
 };
 const LIMITES_DE: Record<Foco["tipo"], Limite[]> = { municipio: ["df", "dl"], distrito: ["dl", "municipio"], distrito_local: ["df", "municipio"] };
 type InfoSeccion = { n: string; municipio: number; df: number; dl: number };
-type Sector = { sector: string; coordinador: string; secciones: number };
+type Sector = { sector: string; secciones: number };
 /** Borde de cada sector: tonos distinguibles entre sí, sin verdes (regla de diseño) */
 const COLOR_SECTOR = ["#0E71AF", "#D81B60", "#B45309", "#7C3AED", "#0891B2", "#BE185D", "#475569", "#EA580C", "#4338CA", "#92400E", "#9333EA", "#0369A1"];
 
@@ -265,7 +265,7 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
   const nombre = (id: number) => {
     const x = info[id];
     const sec = sectorDe[id] ? sectores[idxSector.get(sectorDe[id])!] : undefined;
-    const extra = x ? (foco.tipo === "municipio" ? [`DF ${x.df % 100}`, `DL ${x.dl % 100}`, sec ? `Sector ${sec.sector} (${sec.coordinador})` : ""] : [nomMun[x.municipio], foco.tipo === "distrito" ? `DL ${x.dl % 100}` : `DF ${x.df % 100}`]).filter(Boolean).join(" · ") : "";
+    const extra = x ? (foco.tipo === "municipio" ? [`DF ${x.df % 100}`, `DL ${x.dl % 100}`, sec ? `Sector ${sec.sector}` : ""] : [nomMun[x.municipio], foco.tipo === "distrito" ? `DL ${x.dl % 100}` : `DF ${x.df % 100}`]).filter(Boolean).join(" · ") : "";
     return `Sección ${x?.n ?? id % 10000}${extra ? ` · ${extra}` : ""}`;
   };
 
@@ -311,7 +311,7 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
           <p className="font-bold">{LIMITES[limite].t} dentro de {foco.tipo === "municipio" ? foco.nombre : "este distrito"} <span className="font-normal text-sm" style={{ color: "var(--fg-mute)" }}>· pasa el cursor por una fila para ubicarlo</span></p>
           <div className="overflow-auto">
             <table className="t">
-              <thead><tr><th>{limite === "municipio" ? "Municipio" : limite === "sector" ? "Sector" : "Distrito"}</th>{limite === "sector" && <th>Coordinación</th>}<th>Secciones</th><th>Votos</th><th>Particip.</th><th>Secciones ganadas</th></tr></thead>
+              <thead><tr><th>{limite === "municipio" ? "Municipio" : limite === "sector" ? "Sector" : "Distrito"}</th><th>Secciones</th><th>Votos</th><th>Particip.</th><th>Secciones ganadas</th></tr></thead>
               <tbody>{porGrupo.map((g) => {
                 const gan = [...g.gan].sort((a, b) => b[1] - a[1]);
                 return (
@@ -319,7 +319,6 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
                     onFocus={() => setGrupoHover(g.v)} onBlur={() => setGrupoHover(null)}
                     style={grupoHover === g.v ? { background: "color-mix(in srgb, var(--fg) 6%, transparent)" } : undefined}>
                     <td className="font-semibold whitespace-nowrap">{limite === "sector" && <span className="mapa-ley-c inline-block mr-1.5 align-middle" style={{ background: COLOR_SECTOR[g.v % COLOR_SECTOR.length] }} />}{nombreGrupo(limite, g.v)}</td>
-                    {limite === "sector" && <td>{sectores[g.v]?.coordinador}</td>}
                     <td className="num">{fmtN(g.n)}</td>
                     <td className="num">{fmtN(g.vt)}</td>
                     <td className="num">{pct(g.ln ? (100 * g.vt) / g.ln : null)}</td>
@@ -331,7 +330,7 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
               })}</tbody>
             </table>
           </div>
-          {limite === "sector" ? <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Sectores y coordinación: organización propia (no es una división del INE), cargada desde el archivo de secciones de Torreón 2024. Las secciones creadas después de 2024 heredan el sector de la sección de la que salieron; las de 2024 que ya no existen cuentan en su sector aunque no tengan polígono.</p> :
+          {limite === "sector" ? <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Sectores: organización propia (no es una división del INE), cargada desde el archivo de secciones de Torreón 2024. Las secciones creadas después de 2024 heredan el sector de la sección de la que salieron; las de 2024 que ya no existen cuentan en su sector aunque no tengan polígono.</p> :
           <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Solo la parte de cada {limite === "municipio" ? "municipio" : "distrito"} que cae {foco.tipo === "municipio" ? "en este municipio" : "en este distrito"}, según la cartografía vigente ({limite === "df" ? `distritación federal vigente desde ${ent.df_desde}` : limite === "dl" ? `distritación local vigente desde ${ent.dl_desde}` : "límites municipales del INE"}). Votos y participación suman las secciones con polígono: no es el resultado oficial del distrito completo.</p>}
         </div>
       )}

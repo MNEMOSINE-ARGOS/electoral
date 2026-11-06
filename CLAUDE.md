@@ -73,7 +73,10 @@ lib/
 proxy.ts              sesión obligatoria; /usuarios solo super (Next 16: «proxy» reemplaza a middleware y corre en Node)
 scripts/crear_superusuarios.ts
 scripts/geo_entidad.ts   BGD del INE (shapefiles de una entidad) → public/geo/<id_estado>/*.geojson + public/geo/entidades.json
-scripts/cargar_sectores.ts  GeoJSON de sectores (sector, coordinador, secciones_nuevas) → tabla app_sector_seccion (--estado= --municipio=)
+scripts/sectores_geojson.ts  GeoJSON de sectores → data/sectores/<clave_inegi>.json (solo sección → sector; los nombres de coordinación del
+                         archivo NO se copian, por decisión del usuario). Se registra en lib/sectores.ts; lo sirve /api/sectores y en el
+                         mapa del municipio es el límite «Sectores» (organización propia, no del INE). Las secciones nuevas heredan el sector
+                         de la sección de la que salieron. Hoy: Torreón, 10 sectores, 446 secciones
 scripts/prep_csv.ts      CSV del PREP (por acta) + CSV de candidaturas → data/prep/<estado>_<eleccion>_<anio>.json; se registra en lib/prep.ts
 data/prep/            PREP procesados (hoy: Coahuila, diputaciones locales 2026). lib/prep.ts los sirve a /api/estados, /api/mapa y /api/catalogo
 public/geo/           estados.geojson (nacional); 5/ = Coahuila: entidad, municipios, distritos_federales, distritos_locales, secciones
@@ -100,7 +103,6 @@ Todas las tablas las genera el pipeline; aquí solo se crea `app_usuario`. Grano
 | `jud_*` | judicial 2025: candidatura, estado, municipio, sección | votos por **persona**; `lugar` y `pct_ambito` son cálculos, **no la lista oficial de ganadores** |
 | `app_sec_tendencia`, `app_tendencia_ref` | sección; país / estado / municipio | precalculado (ver §5.4); se regenera en el pipeline tras recargar `sec_*` |
 | `app_usuario` | usuario | ver §6 |
-| `app_sector_seccion` | sección | organización propia: `sector` y `coordinador` por sección (hoy Torreón). La crea y llena `scripts/cargar_sectores.ts` desde un GeoJSON; las secciones nuevas heredan el sector de su sección de origen (`origen = 'heredada:<sección>'`). Nombres de personas: **solo en la base, nunca en el repositorio**. La lee `/api/sectores` (con sesión); en el mapa del municipio, límite «Sectores» |
 
 Cada `(eleccion, anio, extraordinaria, fuente)` es **una elección distinta**: la app nunca suma años, cargos ni elecciones ordinarias con extraordinarias.
 
