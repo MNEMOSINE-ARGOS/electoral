@@ -80,7 +80,7 @@ Para cada una de las **72,895 secciones** con historia suficiente:
 
 ### 5 · Piso, techo y votos aspirables
 
-Para cada partido, en cualquier territorio y cargo, sobre las **últimas 5 o 10 elecciones**:
+Para cada partido, en cualquier territorio y cargo, sobre las elecciones de los **últimos 10 años** (o 20, o todo el histórico):
 
 ```
   piso ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━● techo
@@ -158,7 +158,7 @@ En años con varias boletas, las secciones **dividen su voto** (38% de los casos
 
 ## ◎ Cada dato con su nivel de confianza
 
-Ninguna cifra se da por buena solo porque «cuadra». Cada elección se contrasta con **una segunda fuente independiente** y recibe una etiqueta visible en la plataforma:
+Ninguna cifra se da por buena solo porque «cuadra». Cada elección se contrasta con **una segunda fuente independiente** y recibe un nivel de confianza:
 
 | | Nivel | Significado |
 |:-:|---|---|

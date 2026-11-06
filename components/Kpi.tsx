@@ -1,7 +1,10 @@
-export function Kpi({ titulo, valor, nota, acento }: { titulo: string; valor: string; nota?: string; acento?: boolean }) {
+import { Ayuda } from "@/components/Ayuda";
+
+/** Tarjeta de indicador. `ayuda` = clave de lib/glosario.ts (icono «?» con la explicación). */
+export function Kpi({ titulo, valor, nota, acento, ayuda }: { titulo: string; valor: string; nota?: string; acento?: boolean; ayuda?: string }) {
   return (
     <div className="material p-4 space-y-1">
-      <p className="label">{titulo}</p>
+      <p className="label">{titulo}{ayuda && <Ayuda clave={ayuda} />}</p>
       <p className="display text-3xl font-bold" style={{ color: acento ? "var(--rose)" : "var(--fg)" }}>{valor}</p>
       {nota && <p className="text-xs" style={{ color: "var(--fg-mute)" }}>{nota}</p>}
     </div>

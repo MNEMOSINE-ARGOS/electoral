@@ -1,6 +1,7 @@
 "use client";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useEnfoque } from "@/components/Enfoque";
+import { Ayuda } from "@/components/Ayuda";
 import { CartesianGrid, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
 import { ArrowRight, Download, Target } from "lucide-react";
 import { api, type EleccionCat } from "@/lib/api";
@@ -206,7 +207,7 @@ export function EstrategiaSecciones({ eleccion, anio, municipio, distrito, elecc
                     {[0, 1].map((g) => (
                       <Fragment key={g}><th style={{ top: 33, borderLeft: "1px solid var(--line-strong)" }}>{fuerza.toUpperCase()}</th><th style={{ top: 33 }}>1er lugar</th><th style={{ top: 33 }}>2º lugar</th><th style={{ top: 33 }}>Particip.</th></Fragment>
                     ))}
-                    <th style={{ top: 33, borderLeft: "1px solid var(--line-strong)" }}>Cambio</th><th style={{ top: 33 }}>Votos para ganar</th><th style={{ top: 33 }}>Ventaja</th><th style={{ top: 33 }}>Potencial</th>
+                    <th style={{ top: 33, borderLeft: "1px solid var(--line-strong)" }}>Cambio</th><th style={{ top: 33 }}>Votos para ganar<Ayuda clave="votos_para_ganar" /></th><th style={{ top: 33 }}>Ventaja</th><th style={{ top: 33 }}>Potencial<Ayuda clave="potencial" /></th>
                   </tr>
                 </thead>
                 <tbody>{vista.map((f) => (

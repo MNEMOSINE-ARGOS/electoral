@@ -110,7 +110,7 @@ Cada `(eleccion, anio, extraordinaria, fuente)` es **una elección distinta**: l
 
 **Cargos locales a nivel nacional.** Cada estado vota en su propio calendario: «nacional» para alcaldes, gubernaturas o diputaciones locales es la suma de los estados que votaron ese año y **no es comparable entre años**. Muéstralo con aviso o pide elegir una entidad.
 
-**Confianza.** Cada elección (y cada `sec_resumen`) trae `confianza`: `alta` (oficial y confirmada por una fuente independiente), `media` (oficial sin segunda fuente), `baja`, `no_usar` o vacío (sin evaluar). Muéstrala; no la ocultes. En especial: alcaldes por sección **antes de 2015** vienen de una compilación académica (B. Calderón) con muchos estado-año `baja` o `no_usar`; las diputaciones locales y gubernaturas desde 2015 no se han contrastado con los institutos estatales; diputados federales 2003 tiene una diferencia de 4.4% sin explicar.
+**Confianza.** Cada elección (y cada `sec_resumen`) trae `confianza`: `alta` (oficial y confirmada por una fuente independiente), `media` (oficial sin segunda fuente), `baja`, `no_usar` o vacío (sin evaluar). **Por decisión del usuario no se exhibe en la interfaz** (`Confianza` en `components/Kpi.tsx` devuelve `null`): úsala para decidir qué mostrar o advertir, no la pintes como etiqueta sin que la pidan. En especial: alcaldes por sección **antes de 2015** vienen de una compilación académica (B. Calderón) con muchos estado-año `baja` o `no_usar`; las diputaciones locales y gubernaturas desde 2015 no se han contrastado con los institutos estatales; diputados federales 2003 tiene una diferencia de 4.4% sin explicar.
 
 **Cortes oficiales.** Las cifras son los cómputos oficiales en su fecha de corte (p. ej. 08/06/2024), **antes** de resoluciones del Tribunal Electoral.
 
@@ -143,13 +143,21 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
    - Empates exactos de primera fuerza: gana el nombre de bloque menor.
    - **Invariante**: `lib/tendencia.ts` debe dar exactamente lo mismo que el script del pipeline que llena `app_sec_tendencia` (comprobado: 154 secciones al azar, 16 indicadores idénticos). Si cambias la lógica en uno, cámbiala en el otro y vuelve a comparar.
 5. **Piso y techo** (`lib/pisoTecho.ts`).
-   - Menor y mayor % de votos a candidaturas del partido en las últimas 5 o 10 elecciones ordinarias del cargo en ese territorio.
+   - Menor y mayor % de votos a candidaturas del partido en las elecciones ordinarias del cargo en ese territorio de los **últimos 10 años** contados desde hoy (opción 20 años o todo el histórico).
    - Un partido ausente o con 0 votos no cuenta como piso 0.
    - **Votos aspirables hoy** = % de la lista nominal mínimo y máximo × lista nominal más reciente.
    - Dos medidas: «con aliados» (la candidatura completa) y «votos propios» (solo su recuadro).
 6. **Estrategia por sección** (`EstrategiaSecciones`): bastión, ganada reñida, conquista nueva, perdida, objetivo al alcance o adversa (umbral de 10 puntos), con los votos que faltan para ganar y el potencial por participación. Sigue al partido de enfoque.
 
 ---
+
+### Ayudas «?» (comprensión general)
+
+`components/Ayuda.tsx` + `lib/glosario.ts`: icono «?» que explica qué es una medida, cómo se calcula y qué cuidar. Aparece al pasar el cursor, al enfocar con Tab o al tocar en el celular; se dibuja en un portal para que no lo recorten las tablas.
+- **Uso:** `<Ayuda clave="participacion" />`, o `<Ayuda titulo="…">contenido con los números de esa fila</Ayuda>` (así se explica «Votos posibles hoy» con la cuenta real de cada partido).
+- `Kpi` y las tarjetas `Dato` aceptan `ayuda="clave"`.
+- **Toda medida nueva lleva su entrada en el glosario y su «?».** Si cambia un cálculo, cambia su explicación.
+- Ya lo tienen: participación, votos emitidos, primera fuerza, margen, número efectivo de partidos, volatilidad, competitividad (general y con enfoque), lecturas (candidatura, boleta, alcance, bloque), piso, techo, rango, votos posibles hoy, con aliados y propios, cambio de ganador, continuidad, frente al país, relación, distancia, concurrentes, edad y sexo, votos para ganar, potencial y el selector de enfoque.
 
 ## 6. Usuarios y seguridad
 

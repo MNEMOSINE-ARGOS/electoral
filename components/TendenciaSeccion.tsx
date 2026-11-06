@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { BLOQUES } from "@/lib/analisis";
 import { nombreEleccion } from "@/lib/partidos";
 import { Cargando } from "@/components/Kpi";
+import { Ayuda } from "@/components/Ayuda";
 import { pct } from "@/lib/format";
 
 type Reparto = Record<string, number>;
@@ -56,7 +57,7 @@ export function TendenciaSeccion({ seccionId }: { seccionId: number }) {
         <h2 className="text-xl font-bold pt-1">¿Vota según lo nacional o por su cuenta?</h2></div>
 
       <div className="rounded-2xl p-4 space-y-1" style={{ background: `color-mix(in srgb, ${v.color} 10%, transparent)` }}>
-        <p className="display text-2xl font-bold" style={{ color: v.color }}>{v.t}{r.intensidad && r.veredicto !== "independiente" ? <span className="text-base font-semibold"> {INT[r.intensidad]}</span> : null}</p>
+        <p className="display text-2xl font-bold" style={{ color: v.color }}><Ayuda clave="frente_al_pais" tam={15} /> {v.t}{r.intensidad && r.veredicto !== "independiente" ? <span className="text-base font-semibold"> {INT[r.intensidad]}</span> : null}</p>
         <p className="text-sm" style={{ color: "var(--fg-soft)" }}>{v.d}</p>
         {r.pares > 0 && <p className="text-sm" style={{ color: "var(--fg-soft)" }}>
           En {r.pares} cambios de un bloque entre elecciones del mismo cargo, la relación con el cambio nacional es <b>{fuerza(r.r_nac)}</b> ({r.r_nac?.toFixed(2) ?? "—"}) y con el de su estado <b>{fuerza(r.r_edo)}</b> ({r.r_edo?.toFixed(2) ?? "—"}).
@@ -67,10 +68,10 @@ export function TendenciaSeccion({ seccionId }: { seccionId: number }) {
       </div>
 
       <div className="grid sm:grid-cols-3 gap-3">
-        <Dato icon={<Ruler size={18} />} t="Distancia a la media nacional" v={r.dist_nac_media !== null ? `${r.dist_nac_media.toFixed(1)} pts` : "—"}
+        <Dato ayuda="distancia_pais" icon={<Ruler size={18} />} t="Distancia a la media nacional" v={r.dist_nac_media !== null ? `${r.dist_nac_media.toFixed(1)} pts` : "—"}
           n={`a su estado: ${r.dist_edo_media?.toFixed(1) ?? "—"} pts · promedio de ${r.elecciones} elecciones`} />
         <Dato icon={<Compass size={18} />} t="Misma primera fuerza que el país" v={pct(r.coincide_primera_nac_pct, 0)} n="de las elecciones de la sección" />
-        <Dato icon={<Layers size={18} />} t="Elecciones concurrentes" v={d.arrastre ? `${d.arrastre.bloque} en bloque · ${d.arrastre.diferenciado} diferenciadas` : "—"}
+        <Dato ayuda="concurrentes" icon={<Layers size={18} />} t="Elecciones concurrentes" v={d.arrastre ? `${d.arrastre.bloque} en bloque · ${d.arrastre.diferenciado} diferenciadas` : "—"}
           n={d.arrastre ? `de ${d.arrastre.n} comparaciones; misma primera fuerza en todas las boletas: ${pct(d.arrastre.misma_primera_pct, 0)}` : "no hubo dos cargos el mismo año"} />
       </div>
 
@@ -84,7 +85,7 @@ export function TendenciaSeccion({ seccionId }: { seccionId: number }) {
               {d.posicion.pctl_dist_nac != null && <> Su reparto de votos se parece al nacional más que el de {pct(100 - d.posicion.pctl_dist_nac, 0)} de las secciones.</>}
             </p>)}
           <div className="overflow-auto"><table className="t">
-            <thead><tr><th>Territorio</th><th>Secciones</th><th>Reparto por veredicto</th><th>Relación típica con el país</th><th>Con su estado</th><th>Distancia típica al país</th><th>Concurrentes en bloque / diferenciadas</th></tr></thead>
+            <thead><tr><th>Territorio</th><th>Secciones</th><th>Reparto por veredicto</th><th>Relación típica con el país<Ayuda clave="relacion_pais" /></th><th>Con su estado</th><th>Distancia típica al país<Ayuda clave="distancia_pais" /></th><th>Concurrentes en bloque / diferenciadas</th></tr></thead>
             <tbody>
               <tr style={{ background: `color-mix(in srgb, ${v.color} 7%, transparent)` }}><td className="font-bold">Esta sección</td><td className="num">1</td><td style={{ color: v.color, fontWeight: 700 }}>{v.t}</td>
                 <td className="num">{r.r_nac?.toFixed(2) ?? "—"}</td><td className="num">{r.r_edo?.toFixed(2) ?? "—"}</td><td className="num">{r.dist_nac_media?.toFixed(1) ?? "—"} pts</td>
@@ -128,7 +129,7 @@ export function TendenciaSeccion({ seccionId }: { seccionId: number }) {
             <p className="label">Elecciones del mismo año: ¿una boleta arrastra a las demás?</p>
             {d.concurrentes.length ? (
               <div className="overflow-auto max-h-[330px]"><table className="t">
-                <thead><tr><th>Año</th><th>Comparación</th><th>Diferencia sección</th><th>Diferencia estado</th><th>Lectura</th></tr></thead>
+                <thead><tr><th>Año</th><th>Comparación</th><th>Diferencia sección</th><th>Diferencia estado</th><th>Lectura<Ayuda clave="concurrentes" /></th></tr></thead>
                 <tbody>{d.concurrentes.map((c, i) => (
                   <tr key={i}><td className="font-bold">{c.anio}</td><td>{nombreEleccion[c.referencia] ?? c.referencia} → {nombreEleccion[c.eleccion] ?? c.eleccion}</td>
                     <td className="num">{c.split_sec.toFixed(1)} pts</td><td className="num">{c.split_edo.toFixed(1)} pts</td>
@@ -165,10 +166,10 @@ export function TendenciaSeccion({ seccionId }: { seccionId: number }) {
   );
 }
 
-function Dato({ icon, t, v, n }: { icon: React.ReactNode; t: string; v: string; n?: string }) {
+function Dato({ icon, t, v, n, ayuda }: { icon: React.ReactNode; t: string; v: string; n?: string; ayuda?: string }) {
   return (
     <div className="rounded-2xl p-4 space-y-1" style={{ background: "color-mix(in srgb, var(--fg) 3%, transparent)" }}>
-      <p className="label flex items-center gap-1.5">{icon}{t}</p>
+      <p className="label flex items-center gap-1.5">{icon}{t}{ayuda && <Ayuda clave={ayuda} />}</p>
       <p className="display text-xl font-bold num">{v}</p>
       {n && <p className="text-xs" style={{ color: "var(--fg-mute)" }}>{n}</p>}
     </div>

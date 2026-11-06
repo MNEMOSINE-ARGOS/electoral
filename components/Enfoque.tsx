@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
 import { ENFOQUES, ETIQ_CLASE, clasesDe, esEnfoque, type Clase, type Enfoque } from "@/lib/analisis";
+import { Ayuda } from "@/components/Ayuda";
 
 // Partido de enfoque de toda la app (General, Morena, PAN, PRI, MC). Se recuerda en el navegador.
 const Ctx = createContext<{ enfoque: Enfoque; setEnfoque: (e: Enfoque) => void }>({ enfoque: "general", setEnfoque: () => {} });
@@ -19,7 +20,7 @@ export function SelectorEnfoque() {
   return (
     <div className="flex items-center gap-1 rounded-full p-0.5" role="radiogroup" aria-label="Partido de enfoque"
       style={{ background: "color-mix(in srgb, var(--fg) 5%, transparent)" }} title="Enfoque: la competitividad (bastión, ventaja, reñida…) se mide desde este partido en toda la app">
-      <span className="hidden xl:inline text-xs font-semibold px-2" style={{ color: "var(--fg-mute)" }}>Enfoque</span>
+      <span className="hidden xl:inline-flex items-center text-xs font-semibold pl-2" style={{ color: "var(--fg-mute)" }}>Enfoque<Ayuda clave="enfoque" tam={12} /></span>
       {ENFOQUES.map((e) => {
         const a = e.id === enfoque;
         return (

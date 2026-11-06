@@ -15,6 +15,7 @@ import { alcance, colorPartido } from "@/lib/partidos";
 import { BLOQUES, ENFOQUES, ETIQ_CLASE, clasesDe, type Clase, indicadores, nombreCandidatura, pedersen, porBloque, porCandidatura, porFamilia } from "@/lib/analisis";
 import { useEnfoque } from "@/components/Enfoque";
 import { PisoTecho } from "@/components/PisoTecho";
+import { Ayuda } from "@/components/Ayuda";
 import { fmt, pct } from "@/lib/format";
 
 type Unidad = {
@@ -233,11 +234,14 @@ export default function ResultadosPorCargo() {
             {(terr.distrito > 0 || terr.municipio > 0) && <><ChevronRight size={14} style={{ color: "var(--fg-mute)" }} /><button onClick={() => setTerr({ ...terr, seccion: 0 })}>{terr.municipio ? terr.nombre : `Distrito ${terr.nombre}`}</button></>}
             {terr.seccion > 0 && <><ChevronRight size={14} style={{ color: "var(--fg-mute)" }} /><span>Sección {terr.seccion % 10000}</span></>}
           </nav>
+          <div className="flex items-center gap-1">
           <div className="seg" role="group" aria-label="Lectura">
             <button aria-pressed={lectura === "candidatura"} onClick={() => setLectura("candidatura")} title="Suma cada partido a la coalición (candidatura) que lo postuló, inferida de la boleta">Candidatura</button>
             <button aria-pressed={lectura === "boleta"} onClick={() => setLectura("boleta")} title="Cada partido y cada coalición como aparecen en la boleta">Boleta</button>
             <button aria-pressed={lectura === "alcance"} onClick={() => setLectura("alcance")} title="Votos del partido más los de las coaliciones que integra (no suma 100%)">Alcance</button>
             <button aria-pressed={lectura === "bloque"} onClick={() => setLectura("bloque")} title="Agrupación analítica por bloques políticos de cada elección">Bloques</button>
+          </div>
+          <Ayuda clave={`lectura_${lectura}`} />
           </div>
         </div>
       </section>
@@ -259,12 +263,12 @@ export default function ResultadosPorCargo() {
             {c.ambito === "local" && !terr.estado && <p className="text-xs" style={{ color: "var(--warn)" }}>Vista nacional de un cargo local: suma de las entidades que eligieron {c.nombre.toLowerCase()} en {anio}; cada una votó con su propio calendario y coaliciones.</p>}
           </div>
           <div className="grid grid-cols-2 gap-3 content-start">
-            <Dato t="Participación" v={pct(part)} n={partPrev !== null && part !== null ? `${part - partPrev >= 0 ? "+" : ""}${(part - partPrev).toFixed(1)} pts vs ${prevR!.anio}` : `lista nominal ${fmt(r.lista_nominal)}`} acento />
-            <Dato t="Votos emitidos" v={fmt(r.votos_totales)} n={r.nulos !== null && r.votos_totales ? `nulos ${pct((100 * r.nulos) / r.votos_totales)}` : undefined} />
-            <Dato t="Primera fuerza" v={ind?.ganador ? nombreCandidatura(ind.ganador) : "—"} n={ind?.pGanador ? `${pct(ind.pGanador)} de los votos a candidaturas` : undefined} color={ind?.ganador ? colorPartido(ind.ganador) : undefined} />
-            <Dato t="Margen de victoria" v={ind?.margen !== null && ind?.margen !== undefined ? `${ind.margen.toFixed(1)} pts` : "—"} n={ind?.segundo ? `sobre ${nombreCandidatura(ind.segundo)}` : undefined} />
-            <Dato t="Fuerzas que compiten" v={ind?.nep ? ind.nep.toFixed(1) : "—"} n={ind?.nep ? (ind.nep < 1.6 ? "una fuerza domina" : ind.nep < 2.4 ? "competencia entre dos fuerzas" : ind.nep < 3.2 ? "competencia entre tres fuerzas" : "voto muy repartido") : undefined} />
-            <Dato t="Voto que cambió de partido" v={vol !== null ? `${vol.toFixed(0)}%` : "—"} n={prevR ? `de los votos, respecto de ${prevR.anio}` : "sin elección previa"} />
+            <Dato ayuda="participacion" t="Participación" v={pct(part)} n={partPrev !== null && part !== null ? `${part - partPrev >= 0 ? "+" : ""}${(part - partPrev).toFixed(1)} pts vs ${prevR!.anio}` : `lista nominal ${fmt(r.lista_nominal)}`} acento />
+            <Dato ayuda="votos_emitidos" t="Votos emitidos" v={fmt(r.votos_totales)} n={r.nulos !== null && r.votos_totales ? `nulos ${pct((100 * r.nulos) / r.votos_totales)}` : undefined} />
+            <Dato ayuda="primera_fuerza" t="Primera fuerza" v={ind?.ganador ? nombreCandidatura(ind.ganador) : "—"} n={ind?.pGanador ? `${pct(ind.pGanador)} de los votos a candidaturas` : undefined} color={ind?.ganador ? colorPartido(ind.ganador) : undefined} />
+            <Dato ayuda="margen" t="Margen de victoria" v={ind?.margen !== null && ind?.margen !== undefined ? `${ind.margen.toFixed(1)} pts` : "—"} n={ind?.segundo ? `sobre ${nombreCandidatura(ind.segundo)}` : undefined} />
+            <Dato ayuda="nep" t="Fuerzas que compiten" v={ind?.nep ? ind.nep.toFixed(1) : "—"} n={ind?.nep ? (ind.nep < 1.6 ? "una fuerza domina" : ind.nep < 2.4 ? "competencia entre dos fuerzas" : ind.nep < 3.2 ? "competencia entre tres fuerzas" : "voto muy repartido") : undefined} />
+            <Dato ayuda="volatilidad" t="Voto que cambió de partido" v={vol !== null ? `${vol.toFixed(0)}%` : "—"} n={prevR ? `de los votos, respecto de ${prevR.anio}` : "sin elección previa"} />
             <p className="col-span-2 text-xs" style={{ color: "var(--fg-mute)" }}>Fuente: {r.fuentes.join(", ")}</p>
           </div>
         </section>
@@ -285,7 +289,7 @@ export default function ResultadosPorCargo() {
                 <div className="space-y-1.5">{reparto.orden.slice(0, 8).map(([k, n]) => (
                   <p key={k} className="flex justify-between text-sm"><span><span className="inline-block size-2.5 rounded-sm mr-2" style={{ background: colorPartido(k) }} /><b>{nombreCandidatura(k)}</b></span><span className="num"><b>{n}</b> <span style={{ color: "var(--fg-mute)" }}>de {reparto.celdas.length}</span></span></p>))}</div>
                 <div>
-                  <p className="label pb-1.5">Competitividad de las {unidades.nivel === "estado" ? "entidades" : "unidades"}{enfoque !== "general" && <> desde <span style={{ color: enf.color }}>{enf.t}</span></>}</p>
+                  <p className="label pb-1.5">Competitividad de las {unidades.nivel === "estado" ? "entidades" : "unidades"}{enfoque !== "general" && <> desde <span style={{ color: enf.color }}>{enf.t}</span></>}<Ayuda clave={enfoque === "general" ? "competitividad" : "competitividad_enfoque"} /></p>
                   <div className="flex h-3 rounded-full overflow-hidden">{clases.map((c) => <div key={c.k} style={{ width: `${(100 * (reparto.clases[c.k] ?? 0)) / reparto.total}%`, background: c.color }} title={`${c.t}: ${reparto.clases[c.k] ?? 0}`} />)}</div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-xs">{clases.filter((c) => enfoque === "general" || reparto.clases[c.k]).map((c) => <span key={c.k}><b style={{ color: c.color }}>{reparto.clases[c.k] ?? 0}</b> {c.t.toLowerCase()} <span style={{ color: "var(--fg-mute)" }}>({c.d})</span></span>)}</div>
                   {enfoque !== "general" && <p className="text-xs pt-1.5" style={{ color: "var(--fg-mute)" }}>Desde {enf.t}: su candidatura (sola o en la coalición que lo incluye) contra la mejor rival. Cambia el enfoque en la barra superior.</p>}
@@ -306,7 +310,7 @@ export default function ResultadosPorCargo() {
               </div>
               <div className="overflow-auto max-h-[520px]">
                 <table className="t">
-                  <thead><tr><th>{unidades.nivel === "estado" ? "Entidad" : unidades.nivel === "municipio" ? "Municipio" : "Distrito"}</th><th>Primera fuerza</th><th>Segunda</th><th>{enfoque === "general" ? "Margen" : <span style={{ color: enf.color }}>{enf.t}</span>}</th><th>Particip.</th><th /></tr></thead>
+                  <thead><tr><th>{unidades.nivel === "estado" ? "Entidad" : unidades.nivel === "municipio" ? "Municipio" : "Distrito"}</th><th>Primera fuerza</th><th>Segunda</th><th>{enfoque === "general" ? <>Margen<Ayuda clave="margen" /></> : <><span style={{ color: enf.color }}>{enf.t}</span><Ayuda clave="competitividad_enfoque" /></>}</th><th>Particip.<Ayuda clave="participacion" /></th><th /></tr></thead>
                   <tbody>
                     {lista.slice(0, 600).map((u) => (
                       <tr key={u.id} className="cursor-pointer" onClick={() => entrar(u, unidades.nivel)}>
@@ -374,10 +378,10 @@ export default function ResultadosPorCargo() {
   );
 }
 
-function Dato({ t, v, n, acento, color }: { t: string; v: string; n?: string; acento?: boolean; color?: string }) {
+function Dato({ t, v, n, acento, color, ayuda }: { t: string; v: string; n?: string; acento?: boolean; color?: string; ayuda?: string }) {
   return (
     <div className="material p-4 space-y-1">
-      <p className="label">{t}</p>
+      <p className="label">{t}{ayuda && <Ayuda clave={ayuda} />}</p>
       <p className="display text-[1.7rem] font-bold num" style={{ color: color ?? (acento ? "var(--accion)" : "var(--fg)") }}>{v}</p>
       {n && <p className="text-xs" style={{ color: "var(--fg-mute)" }}>{n}</p>}
     </div>

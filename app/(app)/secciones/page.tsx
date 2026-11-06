@@ -14,6 +14,7 @@ import { EdadSeccion } from "@/components/EdadSeccion";
 import { TendenciaSeccion } from "@/components/TendenciaSeccion";
 import { BLOQUES, ENFOQUES, ETIQ_CLASE, clasesDe, nombreCandidatura, type Clase } from "@/lib/analisis";
 import { CeldaClase, useEnfoque } from "@/components/Enfoque";
+import { Ayuda } from "@/components/Ayuda";
 import { colorPartido, nombreEleccion } from "@/lib/partidos";
 import { fmt, pct } from "@/lib/format";
 
@@ -133,10 +134,10 @@ export default function Secciones() {
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Kpi titulo="Secciones" valor={String(rf!.total)} nota={filtrado ? `de ${r.total} (con filtro)` : undefined} acento />
-            <Kpi titulo="Participación" valor={pct(rf!.participacion)} nota="votos entre lista nominal" />
-            <Kpi titulo="Cambiaron de ganador" valor={rf!.comparables ? pct((100 * rf!.cambiaron) / rf!.comparables, 0) : "—"} nota={d.anio_anterior ? `contra ${d.anio_anterior} (${rf!.comparables} comparables)` : "sin elección anterior"} />
-            {enfoque === "general" ? <Kpi titulo="Muy reñidas" valor={String(rf!.clases["reñida"] ?? 0)} nota="margen menor a 5 puntos" />
-              : <Kpi titulo={`Reñidas para ${enf.t}`} valor={String((rf!.clases["reñida_gana"] ?? 0) + (rf!.clases["reñida_pierde"] ?? 0))} nota={`gana ${rf!.clases["reñida_gana"] ?? 0} · pierde ${rf!.clases["reñida_pierde"] ?? 0} (por menos de 5 pts)`} />}
+            <Kpi ayuda="participacion" titulo="Participación" valor={pct(rf!.participacion)} nota="votos entre lista nominal" />
+            <Kpi ayuda="cambio_ganador" titulo="Cambiaron de ganador" valor={rf!.comparables ? pct((100 * rf!.cambiaron) / rf!.comparables, 0) : "—"} nota={d.anio_anterior ? `contra ${d.anio_anterior} (${rf!.comparables} comparables)` : "sin elección anterior"} />
+            {enfoque === "general" ? <Kpi ayuda="reñidas" titulo="Muy reñidas" valor={String(rf!.clases["reñida"] ?? 0)} nota="margen menor a 5 puntos" />
+              : <Kpi ayuda="competitividad_enfoque" titulo={`Reñidas para ${enf.t}`} valor={String((rf!.clases["reñida_gana"] ?? 0) + (rf!.clases["reñida_pierde"] ?? 0))} nota={`gana ${rf!.clases["reñida_gana"] ?? 0} · pierde ${rf!.clases["reñida_pierde"] ?? 0} (por menos de 5 pts)`} />}
           </div>
           <section className="material p-4 space-y-3">
             <p className="label">Fuerza por bloque (votos a partidos, suma de secciones)</p>
@@ -158,7 +159,7 @@ export default function Secciones() {
           {anio && <PerfilParticipacion secciones={filas} corte={d.corte_edad} anio={anio} filtro={filtrado ? [clase ? ETIQ_CLASE[clase as Clase].t : "", secSel ? `sección ${secSel % 10000}` : ""].filter(Boolean).join(" · ") : ""} />}
           <section className="material p-4 overflow-auto max-h-[560px]">
             <table className="t">
-              <thead><tr><th>Sección</th><th>Ganador</th><th>Bloque</th><th>Margen</th><th>{enfoque === "general" ? "Clase" : <>Clase · <span style={{ color: enf.color }}>{enf.t}</span></>}</th><th>Particip.</th><th>Lista nominal</th><th>% mujeres</th><th>Edad media</th><th>18–29</th><th>65+</th>{(d.anios_anteriores ?? []).map((a) => <th key={a}>Ganó en {a}</th>)}<th>Continuidad</th><th title="¿Sus cambios entre elecciones siguen los del país? (todas sus elecciones, no solo la leída)">Frente al país</th></tr></thead>
+              <thead><tr><th>Sección</th><th>Ganador</th><th>Bloque<Ayuda clave="bloque" /></th><th>Margen<Ayuda clave="margen" /></th><th>{enfoque === "general" ? <>Clase<Ayuda clave="competitividad" /></> : <>Clase · <span style={{ color: enf.color }}>{enf.t}</span><Ayuda clave="competitividad_enfoque" /></>}</th><th>Particip.<Ayuda clave="participacion" /></th><th>Lista nominal</th><th>% mujeres<Ayuda clave="mujeres" /></th><th>Edad media<Ayuda clave="edad_media" /></th><th>18–29<Ayuda clave="jovenes" /></th><th>65+<Ayuda clave="mayores" /></th>{(d.anios_anteriores ?? []).map((a) => <th key={a}>Ganó en {a}</th>)}<th>Continuidad<Ayuda clave="continuidad" /></th><th >Frente al país<Ayuda clave="frente_al_pais" /></th></tr></thead>
               <tbody>
                 {filas.map((s) => (
                   <tr key={s.seccion_id} style={{ cursor: "pointer" }} onClick={() => abrir(s.seccion_id)} title="Ver ficha de la sección">

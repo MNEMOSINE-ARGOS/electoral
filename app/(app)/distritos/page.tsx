@@ -7,6 +7,7 @@ import { useCatalogo } from "@/components/useCatalogo";
 import { Cargando, Confianza } from "@/components/Kpi";
 import { BLOQUES, ENFOQUES, nombreCandidatura, porBloque, porCandidatura, type Clase } from "@/lib/analisis";
 import { CeldaClase, ResumenClases, useEnfoque } from "@/components/Enfoque";
+import { Ayuda } from "@/components/Ayuda";
 import { colorPartido, nombreEleccion } from "@/lib/partidos";
 import { fmt, pct } from "@/lib/format";
 
@@ -113,7 +114,7 @@ export default function Distritos() {
             </div>
             <div className="overflow-auto max-h-[460px]">
               <table className="t">
-                <thead><tr><th>Distrito</th><th>Ganador</th><th>Bloque</th><th>Margen (pts)</th><th>{enfoque === "general" ? "Competitividad" : <>Competitividad · <span style={{ color: enf.color }}>{enf.t}</span></>}</th><th>Fuerzas que compiten</th><th>Participación</th><th>Secciones</th><th /></tr></thead>
+                <thead><tr><th>Distrito</th><th>Ganador</th><th>Bloque</th><th>Margen (pts)<Ayuda clave="margen" /></th><th>{enfoque === "general" ? <>Competitividad<Ayuda clave="competitividad" /></> : <>Competitividad · <span style={{ color: enf.color }}>{enf.t}</span><Ayuda clave="competitividad_enfoque" /></>}</th><th>Fuerzas que compiten<Ayuda clave="nep" /></th><th>Participación<Ayuda clave="participacion" /></th><th>Secciones</th><th /></tr></thead>
                 <tbody>
                   {lista.map((d) => (
                     <tr key={d.id_distrito} style={{ background: sel?.id_distrito === d.id_distrito ? "var(--rose-soft)" : undefined, cursor: "pointer" }} onClick={() => setSel(d)}>

@@ -5,6 +5,7 @@ import { Activity, Venus, Users } from "lucide-react";
 import { colorPartido } from "@/lib/partidos";
 import { nombreCandidatura } from "@/lib/analisis";
 import { fmt, pct } from "@/lib/format";
+import { Ayuda } from "@/components/Ayuda";
 
 export type SecPerfil = {
   seccion_id: number; seccion: number; votos_totales: number | null; lista_nominal: number | null; participacion: number | null; ganador: string | null;
@@ -69,10 +70,10 @@ export function PerfilParticipacion({ secciones, corte, anio, filtro = "" }: { s
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Dato icon={<Users size={20} />} t="Edad media del electorado" v={prom("edad_media") !== null ? `${prom("edad_media")!.toFixed(1)} años` : "—"} n="promedio ponderado por lista nominal" />
+        <Dato ayuda="edad_media" icon={<Users size={20} />} t="Edad media del electorado" v={prom("edad_media") !== null ? `${prom("edad_media")!.toFixed(1)} años` : "—"} n="promedio ponderado por lista nominal" />
         <Dato icon={<Venus size={20} color="var(--mujer)" />} t="Mujeres" v={pct(prom("mujeres_pct"))} n={`de ${fmt(totLn)} en la lista`} color="var(--mujer)" />
-        <Dato icon={<Users size={20} />} t="Jóvenes de 18 a 29" v={pct(prom("pct_18_29"))} n={`65 años y más: ${pct(prom("pct_65"))}`} />
-        <Dato icon={<Activity size={20} color="var(--azul)" />} t="Relación con la participación" v={r !== null ? (r >= 0 ? "+" : "") + r.toFixed(2) : "—"} n={`${VARS[v].t}; de −1 a +1`} color="var(--azul)" />
+        <Dato ayuda="jovenes" icon={<Users size={20} />} t="Jóvenes de 18 a 29" v={pct(prom("pct_18_29"))} n={`65 años y más: ${pct(prom("pct_65"))}`} />
+        <Dato ayuda="relacion_pais" icon={<Activity size={20} color="var(--azul)" />} t="Relación con la participación" v={r !== null ? (r >= 0 ? "+" : "") + r.toFixed(2) : "—"} n={`${VARS[v].t}; de −1 a +1`} color="var(--azul)" />
       </div>
       <p className="text-sm font-semibold rounded-xl p-3" style={{ background: "color-mix(in srgb, var(--azul) 8%, transparent)", color: "var(--fg-soft)" }}>{lectura(r, v)}</p>
 
@@ -126,10 +127,10 @@ export function PerfilParticipacion({ secciones, corte, anio, filtro = "" }: { s
   );
 }
 
-function Dato({ icon, t, v, n, color }: { icon: React.ReactNode; t: string; v: string; n?: string; color?: string }) {
+function Dato({ icon, t, v, n, color, ayuda }: { icon: React.ReactNode; t: string; v: string; n?: string; color?: string; ayuda?: string }) {
   return (
     <div className="rounded-2xl p-4 space-y-1" style={{ background: "color-mix(in srgb, var(--fg) 3%, transparent)" }}>
-      <p className="label flex items-center gap-1.5">{icon}{t}</p>
+      <p className="label flex items-center gap-1.5">{icon}{t}{ayuda && <Ayuda clave={ayuda} />}</p>
       <p className="display text-[1.6rem] font-bold num" style={{ color: color ?? "var(--fg)" }}>{v}</p>
       {n && <p className="text-xs" style={{ color: "var(--fg-mute)" }}>{n}</p>}
     </div>

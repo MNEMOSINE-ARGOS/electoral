@@ -1,4 +1,5 @@
-// Piso y techo histórico de cada partido en un territorio y cargo: últimas N elecciones (ordinarias) con datos.
+// Piso y techo histórico de cada partido en un territorio y cargo: elecciones ordinarias con datos de los últimos N AÑOS
+// (contados desde el año en curso; p. ej. en 2026 con 10 años = elecciones de 2016 en adelante). anios = 0 → todo el histórico.
 // Funciones puras. Dos medidas:
 //  - «candidatura»: votos de la candidatura en que participa el partido (sola o la coalición que lo contiene en esa boleta,
 //    inferida con porCandidatura). Es lo que el partido logró con sus aliados; en 2024 PAN y PRI comparten el mismo número.
@@ -12,7 +13,7 @@ export type Eleccion = { anio: number; partidos: Record<string, number>; lista_n
 export type Punto = { anio: number; votos: number; pct: number; pct_ln: number | null };
 export type Fila = {
   partido: string; n: number; min: Punto; max: Punto; ultimo: Punto; prom_pct: number;
-  min_ln: number | null; max_ln: number | null; ln_ref: number | null; aspirable_min: number | null; aspirable_max: number | null; ultimo_en_rango: number | null;
+  min_ln: number | null; max_ln: number | null; min_ln_anio: number | null; max_ln_anio: number | null; ln_ref: number | null; ln_ref_anio: number | null; aspirable_min: number | null; aspirable_max: number | null; ultimo_en_rango: number | null;
 };
 
 const alias = (p: string) => (p === "conve" ? "mc" : p === "panal" || p === "na" ? "pna" : p);
@@ -28,10 +29,14 @@ function votosDe(partidos: Record<string, number>, partido: string, medida: Medi
   return c && c[1] > 0 ? c[1] : null;
 }
 
-export function pisoTecho(serie: Eleccion[], medida: Medida, n = 10, minPct = 2): { filas: Fila[]; anios: number[] } {
-  const els = serie.filter((e) => Object.keys(e.partidos).length).sort((a, b) => b.anio - a.anio).slice(0, n);
-  const anios = els.map((e) => e.anio).sort((a, b) => a - b);
-  const lnRef = els.find((e) => e.lista_nominal)?.lista_nominal ?? null; // la más reciente
+export const desdeAnio = (anios: number, hoy = new Date().getFullYear()) => (anios > 0 ? hoy - anios : -Infinity);
+
+export function pisoTecho(serie: Eleccion[], medida: Medida, anios = 10, minPct = 2): { filas: Fila[]; anios: number[] } {
+  const desde = desdeAnio(anios);
+  const els = serie.filter((e) => Object.keys(e.partidos).length && e.anio >= desde).sort((a, b) => b.anio - a.anio);
+  const usados = els.map((e) => e.anio).sort((a, b) => a - b);
+  const refEl = els.find((e) => e.lista_nominal); // la elección más reciente con lista nominal
+  const lnRef = refEl?.lista_nominal ?? null, lnRefAnio = refEl?.anio ?? null;
   const tokens = new Set<string>();
   for (const e of els) for (const k of Object.keys(e.partidos)) for (const t of k.split("-")) if (!EXCLUIR.test(t)) tokens.add(alias(t));
   const filas: Fila[] = [];
@@ -45,15 +50,15 @@ export function pisoTecho(serie: Eleccion[], medida: Medida, n = 10, minPct = 2)
     }
     if (!pts.length || Math.max(...pts.map((x) => x.pct)) < minPct) continue;
     const porPct = [...pts].sort((a, b) => a.pct - b.pct);
-    const ln = pts.filter((x) => x.pct_ln !== null).map((x) => x.pct_ln!);
-    const minLn = ln.length ? Math.min(...ln) : null, maxLn = ln.length ? Math.max(...ln) : null;
+    const conLn = pts.filter((x) => x.pct_ln !== null).sort((a, b) => a.pct_ln! - b.pct_ln!);
+    const minLn = conLn.length ? conLn[0].pct_ln! : null, maxLn = conLn.length ? conLn[conLn.length - 1].pct_ln! : null;
     const ultimo = pts[0], min = porPct[0], max = porPct[porPct.length - 1];
     filas.push({
       partido: p, n: pts.length, min, max, ultimo, prom_pct: pts.reduce((a, x) => a + x.pct, 0) / pts.length,
-      min_ln: minLn, max_ln: maxLn, ln_ref: lnRef,
+      min_ln: minLn, max_ln: maxLn, min_ln_anio: conLn[0]?.anio ?? null, max_ln_anio: conLn.at(-1)?.anio ?? null, ln_ref: lnRef, ln_ref_anio: lnRefAnio,
       aspirable_min: lnRef && minLn !== null ? Math.round((minLn / 100) * lnRef) : null, aspirable_max: lnRef && maxLn !== null ? Math.round((maxLn / 100) * lnRef) : null,
       ultimo_en_rango: max.pct > min.pct ? (100 * (ultimo.pct - min.pct)) / (max.pct - min.pct) : null,
     });
   }
-  return { filas: filas.sort((a, b) => b.ultimo.pct - a.ultimo.pct || b.max.pct - a.max.pct), anios };
+  return { filas: filas.sort((a, b) => b.ultimo.pct - a.ultimo.pct || b.max.pct - a.max.pct), anios: usados };
 }
