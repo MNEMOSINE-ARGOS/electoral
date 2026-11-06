@@ -5,7 +5,7 @@
 Aplicación web de análisis electoral de México **por sección electoral** (Next.js 16 + PostgreSQL). Idioma de trabajo, de la interfaz y del código: **español**. Fecha de este documento: 2026-11-05.
 
 Este repositorio contiene **solo la aplicación**. Los datos los produce un proyecto aparte (pipeline en Python, «Data/»), que estandariza fuentes del INE y de investigadores y carga tablas agregadas a PostgreSQL. Aquí no se procesan fuentes crudas: la app **lee** esas tablas. Si una cifra de la base parece mal, el arreglo va en el pipeline, no en un parche de la app (ver §9).
-**Única excepción, decidida por el usuario: PREP** de elecciones que la base aún no tiene (`data/prep/`, `lib/prep.ts`, ver §4).
+**Excepciones, decididas por el usuario** (archivos en `data/`, sin pasar por la base): **PREP** de elecciones que la base aún no tiene (`data/prep/`, `lib/prep.ts`, ver §4), **genealogía de secciones** del INE (`data/historico_secciones.json`) y **Censo 2020 por sección** (`data/censo2020/`). Si el pipeline los incorpora, la app debe leerlos de la base.
 
 ---
 
@@ -72,6 +72,8 @@ lib/
   pisoTecho.ts        piso y techo histórico por partido
   reconstruccion.ts   serie de un distrito federal con la geografía vigente: suma por sección de las elecciones de otras distritaciones
   historico.ts        genealogía oficial de secciones (INE): destinos(), origenes(), hijasDe(); la usan la reconstrucción y la ficha de sección
+  censo.ts            Censo 2020 por sección: CAMPOS_CENSO (claves del INEGI que se guardan), INDICADORES (numerador ÷ denominador, grupo, explicación),
+                      valor() por sección y valorTerritorio() (Σ num ÷ Σ den, sin las secciones con celda protegida)
   consultas.ts        consultas reutilizables (resultados por territorio, GRUPOS_EDAD)
   db.ts               pool de pg (q<T>()) y tabla de usuarios
   auth.ts             cookie firmada (Web Crypto)        vigencia.ts  usuario activo + rol vigente (caché 30 s)
@@ -88,6 +90,8 @@ scripts/sectores_geojson.ts  GeoJSON de sectores → data/sectores/<clave_inegi>
                          de la sección de la que salieron. Hoy: Torreón, 10 sectores, 446 secciones
 scripts/historico_secciones.ts  histórico de secciones del INE (Access PEF 1994-2024, corte dic 2025; se exporta a JSON con PowerShell, ver
                          el encabezado) → data/historico_secciones.json: divisiones (reseccionamiento), fusiones (integración) y parciales
+scripts/censo_secciones.ts  Censo 2020 por sección (ECEG 2020 del INEGI-INE, un Excel por entidad desde la mapoteca del INE; lector de .xlsx propio)
+                         → data/censo2020/<id_estado>.json (conteos de CAMPOS_CENSO; celdas protegidas = null). Comprueba que Σ POBTOT = población del Censo 2020
 scripts/prep_csv.ts      CSV del PREP (por acta) + CSV de candidaturas → data/prep/<estado>_<eleccion>_<anio>.json; se registra en lib/prep.ts
 data/prep/            PREP procesados (hoy: Coahuila, diputaciones locales 2026). lib/prep.ts los sirve a /api/estados, /api/mapa y /api/catalogo
 public/geo/           estados.geojson (nacional); <id_estado>/ = las 32 entidades: entidad, municipios, distritos_federales, distritos_locales,
@@ -191,9 +195,10 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 - **Uso:** `<Ayuda clave="participacion" />`, o `<Ayuda titulo="…">contenido con los números de esa fila</Ayuda>` (así se explica «Votos posibles hoy» con la cuenta real de cada partido).
 - `Kpi` y las tarjetas `Dato` aceptan `ayuda="clave"`.
 - **Toda medida nueva lleva su entrada en el glosario y su «?».** Si cambia un cálculo, cambia su explicación.
-- Ya lo tienen: participación, votos emitidos, primera fuerza, margen, número efectivo de partidos, volatilidad, competitividad (general y con enfoque), lecturas (candidatura, boleta, alcance, bloque), piso, techo, rango, votos posibles hoy, con aliados y propios, cambio de ganador, continuidad, frente al país, relación, distancia, concurrentes, edad y sexo, electorado por edad del territorio (`edad_territorio`), elección reconstruida (`reconstruccion_distrital`), votos para ganar, potencial, el selector de enfoque y cada métrica de los mapas (`mapa_<métrica>`: ganador, competitividad, batalla, cambio, participación, partido, bivariado, y `mapa_entidad`).
+- Ya lo tienen: participación, votos emitidos, primera fuerza, margen, número efectivo de partidos, volatilidad, competitividad (general y con enfoque), lecturas (candidatura, boleta, alcance, bloque), piso, techo, rango, votos posibles hoy, con aliados y propios, cambio de ganador, continuidad, frente al país, relación, distancia, concurrentes, edad y sexo, electorado por edad del territorio (`edad_territorio`), elección reconstruida (`reconstruccion_distrital`), perfil del censo (`censo_seccion`), votos para ganar, potencial, el selector de enfoque y cada métrica de los mapas (`mapa_<métrica>`: ganador, competitividad, batalla, cambio, participación, partido, bivariado, y `mapa_entidad`).
 - **Electorado por edad y sexo de un territorio** (`/api/perfil-edad`): corte con edad más reciente. País, estado, municipio y distrito federal vigente salen de `ln_edad_territorio`; distrito local, distrito de otra era y sección, de la suma de `ln_edad_seccion` (avisa cuántas secciones ya no están en el corte). El cambio «desde la elección» usa el corte más cercano anterior al 30 de junio del año y, si se armó por secciones, solo las secciones presentes en ambos cortes. Edad media con la marca de cada rango (65+ = 72).
 - **Gráfica de puntos de la lectura por sección** (`PerfilParticipacion`): la tarjeta de cada punto dice qué sección es, su lista nominal, su peso (lista ÷ lista de las secciones de la vista) y su perfil; al elegir una sección se siguen viendo todas y ella se resalta; tocar un punto la elige.
+- **Perfil socioeconómico por sección** (`components/PerfilCenso`, API `/api/censo?estado=`, en la lectura por sección): un indicador del Censo 2020 contra el voto del partido de enfoque, de un bloque o la participación; correlación, quintiles (el voto del grupo suma votos) y la brecha entre el quintil alto y el bajo. El censo usa las secciones de enero de 2021: las creadas después **no** reciben el perfil de su sección de origen (se cuentan y se avisa). Asociación territorial, no conducta individual (falacia ecológica, en la nota).
 - **Votos que faltan** (`faltanParaGanar` en `lib/analisis.ts`, campo `faltan` de `/api/mapa`): votos de la candidatura ganadora − los de la candidatura del partido de enfoque + 1; solo donde pierde. Es la misma definición que «Votos para ganar».
 
 ## 6. Usuarios y seguridad
@@ -231,6 +236,8 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 | Tendencia nacional | 72,895 secciones: 15,506 sigue · 40,836 parcial · 13,623 independiente · 2,930 sin datos; correlación mediana 0.57 con el país y 0.72 con el estado |
 | Sección 50338 (Coahuila) | tendencia «parcial»; piso y techo de presidencia (votos propios): Morena 358 (2018) a 500 (2024), votos posibles 466-500; diputaciones federales 2015-2024: PRI 236 a 456 |
 | Reconstrucción distrital, diputaciones federales, Coahuila 506 (Torreón) | 2021 reconstruida 150,248 votos (134,908 por sección idéntica + 15,340 por la genealogía del INE, 0 sin asignar); 2024 oficial 183,602 |
+| Censo 2020 por sección (`data/censo2020`) | Σ POBTOT = población oficial del Censo 2020 en las 32 entidades (país 126,014,024); país: escolaridad 9.7 años, analfabetismo 4.7%, sin servicio de salud 26.2%, lengua indígena 6.1%, católicos 77.7% (= INEGI) |
+| Censo × voto, Torreón, diputados federales 2024, Morena y aliados | escolaridad r = −0.64; 52.1% en el quintil de menos escolaridad y 32.9% en el de más; 385 de 410 secciones con censo (2021: 390 de 390) |
 | Genealogía de secciones (`data/historico_secciones.json`) | 1,484 divisiones · 1,128 fusiones · 349 parciales; Coahuila 734 → 1762-1765 (2021) |
 | Electorado por edad, corte 2026-10-22 | país 101,728,768; Coahuila 2,501,241 (= suma de sus secciones); Torreón 568,905 |
 | Judicial 2025 | votos por candidatura en `jud_candidatura` = 486,063,196 |

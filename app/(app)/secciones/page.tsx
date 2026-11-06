@@ -8,6 +8,7 @@ import { Territorio, type Sel } from "@/components/Territorio";
 import { Buscador } from "@/components/Buscador";
 import { EstrategiaSecciones } from "@/components/EstrategiaSecciones";
 import { PerfilParticipacion } from "@/components/PerfilParticipacion";
+import { PerfilCenso } from "@/components/PerfilCenso";
 import { BookOpen, Target } from "lucide-react";
 import { Cargando, Kpi } from "@/components/Kpi";
 import { Piramide } from "@/components/Piramide";
@@ -160,6 +161,8 @@ export default function Secciones() {
           {!!secSel && <EdadSeccion seccionId={secSel} corteInicial={d.corte_edad} />}
           {!!secSel && <TendenciaSeccion seccionId={secSel} />}
           {anio && <PerfilParticipacion secciones={filas} universo={(d?.secciones ?? []).filter((s) => !clase || s.clase === clase)} resaltar={secSel} onElegir={setSecSel} corte={d.corte_edad} anio={anio} filtro={filtrado ? [clase ? ETIQ_CLASE[clase as Clase].t : "", secSel ? `sección ${secSel % 10000}` : ""].filter(Boolean).join(" · ") : ""} />}
+          {anio && sel.estado > 0 && <PerfilCenso secciones={(d?.secciones ?? []).filter((s) => !clase || s.clase === clase)} estado={sel.estado} anio={anio} resaltar={secSel} onElegir={setSecSel}
+            nombreEstado={cat?.estados.find((e) => e.id_estado === sel.estado)?.nombre_corto ?? "el estado"} />}
           <section className="material p-4 overflow-auto max-h-[560px]">
             <table className="t">
               <thead><tr><th>Sección</th><th>Ganador</th><th>Bloque<Ayuda clave="bloque" /></th><th>Margen<Ayuda clave="margen" /></th><th>{enfoque === "general" ? <>Clase<Ayuda clave="competitividad" /></> : <>Clase · <span style={{ color: enf.color }}>{enf.t}</span><Ayuda clave="competitividad_enfoque" /></>}</th><th>Particip.<Ayuda clave="participacion" /></th><th>Lista nominal</th><th>% mujeres<Ayuda clave="mujeres" /></th><th>Edad media<Ayuda clave="edad_media" /></th><th>18–29<Ayuda clave="jovenes" /></th><th>65+<Ayuda clave="mayores" /></th>{(d.anios_anteriores ?? []).map((a) => <th key={a}>Ganó en {a}</th>)}<th>Continuidad<Ayuda clave="continuidad" /></th><th >Frente al país<Ayuda clave="frente_al_pais" /></th></tr></thead>
