@@ -62,7 +62,15 @@ export async function sesionDe(req: Request): Promise<Sesion | null> {
   return verificarSesion(leerCookie(req));
 }
 
-export function cookieSesion(token: string, borrar = false): string {
-  const seguro = process.env.NODE_ENV === "production" ? "; Secure" : "";
+/** ¿La petición llegó por HTTPS? Detrás de un proxy (Coolify/Traefik, Nginx) se lee x-forwarded-proto. */
+export function esHttps(req?: Request): boolean {
+  if (!req) return process.env.NODE_ENV === "production";
+  const fwd = req.headers.get("x-forwarded-proto")?.split(",")[0].trim();
+  return (fwd ?? new URL(req.url).protocol.replace(":", "")) === "https";
+}
+
+/** Cookie de sesión. «Secure» solo si la petición llegó por HTTPS: con Secure sobre http el navegador la descarta y el login no entra. */
+export function cookieSesion(token: string, borrar = false, req?: Request): string {
+  const seguro = esHttps(req) ? "; Secure" : "";
   return `${COOKIE_SESION}=${borrar ? "" : token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${borrar ? 0 : DURACION_SESION_S}${seguro}`;
 }

@@ -22,7 +22,13 @@ bun run build
 | `DATABASE_URL` | `.env` | PostgreSQL con las tablas de §3. **Nunca imprimirla ni copiarla a código, logs o documentos.** |
 | `AUTH_SECRET` | `.env.local` | Firma HMAC de la cookie de sesión |
 
-`.env*` está en `.gitignore`. Para probar APIs desde la terminal hace falta iniciar sesión (`POST /api/auth/login`) y reenviar la cookie `electoral_sesion`. Usa un usuario de prueba creado desde `/usuarios` y bórralo al terminar; no pidas ni guardes contraseñas reales.
+`.env*` está en `.gitignore`.
+
+**Despliegue (Coolify u otro).**
+- `bun run build` **debe compilar sin variables de entorno**: las plataformas las dan solo al ejecutar. Con `cacheComponents`, Next pre-renderiza al compilar todo GET que no lea la petición; una ruta que consulte la base sin leer `req` necesita `await connection()` (de `next/server`), como `app/api/catalogo`. Comprobación: compilar con `.env` y `.env.local` apartados.
+- `DATABASE_URL` y `AUTH_SECRET` se definen como variables de **ejecución**.
+- La cookie lleva `Secure` solo si la petición llegó por HTTPS (`x-forwarded-proto`): por `http` el login funciona igual.
+- Si el login responde 503 «No se pudo consultar la base de usuarios», el contenedor no llega a PostgreSQL: revisa el firewall o `pg_hba.conf` del servidor de la base, o usa el host interno si la base corre en el mismo Coolify. Para probar APIs desde la terminal hace falta iniciar sesión (`POST /api/auth/login`) y reenviar la cookie `electoral_sesion`. Usa un usuario de prueba creado desde `/usuarios` y bórralo al terminar; no pidas ni guardes contraseñas reales.
 
 ---
 

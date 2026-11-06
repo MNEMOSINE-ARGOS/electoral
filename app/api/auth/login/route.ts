@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     olvidarUsuario(fila.usuario);
     const token = await firmarSesion({ usuario: fila.usuario, nombre: fila.nombre, rol: fila.rol });
     const res = NextResponse.json({ ok: true, usuario: fila.usuario, nombre: fila.nombre, rol: fila.rol });
-    res.headers.append("Set-Cookie", cookieSesion(token));
+    res.headers.append("Set-Cookie", cookieSesion(token, false, req));
     return res;
   } catch {
     return NextResponse.json({ error: "No se pudo consultar la base de usuarios" }, { status: 503 });

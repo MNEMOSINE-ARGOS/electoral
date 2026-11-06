@@ -27,7 +27,7 @@ export async function proxy(req: NextRequest) {
   const res = pathname.startsWith("/api/")
     ? NextResponse.json({ error: "No autenticado" }, { status: 401 })
     : (() => { const url = new URL("/login", req.url); if (pathname !== "/") url.searchParams.set("next", pathname); return NextResponse.redirect(url); })();
-  if (token) res.headers.append("Set-Cookie", cookieSesion("", true)); // sesión de un usuario desactivado o eliminado: se borra
+  if (token) res.headers.append("Set-Cookie", cookieSesion("", true, req)); // sesión de un usuario desactivado o eliminado: se borra
   return res;
 }
 
