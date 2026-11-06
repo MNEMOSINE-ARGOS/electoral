@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { q } from "@/lib/db";
 import { GRUPOS_EDAD } from "@/lib/consultas";
 import { porCandidatura } from "@/lib/analisis";
+import { origenes, hijasDe } from "@/lib/historico";
 
 // Ficha de una sección: todas sus elecciones (cada una por separado), lista nominal por edad y sexo, y serie de cortes.
 // ?id=50338  (seccion_id = id_estado*10000 + sección). Aviso: la sección puede no ser la misma unidad geográfica entre años.
@@ -38,6 +39,11 @@ export async function GET(req: Request) {
     "SELECT to_char(fecha_corte,'YYYY-MM-DD') AS fecha_corte, lista_hombres, lista_mujeres, lista_total, padron_total FROM ln_seccion WHERE seccion_id = $1 ORDER BY fecha_corte", [id]);
   const [mun] = await q<{ nombre: string; clave_inegi: number }>(
     "SELECT m.nombre, m.clave_inegi FROM app_municipio m WHERE m.clave_inegi = (SELECT clave_inegi FROM sec_resumen WHERE seccion_id = $1 AND clave_inegi IS NOT NULL ORDER BY anio DESC LIMIT 1)", [id]);
-  return NextResponse.json({ seccion_id: id, seccion: id % 10000, id_estado: Math.floor(id / 10000), municipio: mun ?? null, historia, corte_edad: corte?.f ?? null, cortes_edad: cortesEdad, grupos: GRUPOS_EDAD, piramide, serie,
+  // Genealogía oficial (INE): de qué sección viene y en cuáles se dividió o con cuál se fusionó
+  const genealogia = {
+    origenes: origenes(id).map((o) => ({ seccion: o.o % 10000, tipo: o.t, anio: o.a })),
+    destinos: hijasDe(id).map((h) => h % 10000),
+  };
+  return NextResponse.json({ seccion_id: id, seccion: id % 10000, genealogia, id_estado: Math.floor(id / 10000), municipio: mun ?? null, historia, corte_edad: corte?.f ?? null, cortes_edad: cortesEdad, grupos: GRUPOS_EDAD, piramide, serie,
     aviso: "El número de sección identifica la sección en cada año; si hubo reseccionamiento, la geografía puede haber cambiado (docs/GUIA_RESECCIONAMIENTO.md)." });
 }

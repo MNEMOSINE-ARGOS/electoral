@@ -399,17 +399,17 @@ function Dato({ t, v, n, acento, color, ayuda }: { t: string; v: string; n?: str
 
 /** Cómo se armó una elección reconstruida del distrito (ver lib/reconstruccion.ts) */
 function textoCobertura(x: Resultado) {
-  const c = x.reconstruida!; const t = c.exactos + c.por_municipio;
-  return `${fmt(t)} votos asignados: ${fmt(c.exactos)} de secciones que existen igual hoy${c.por_municipio ? ` y ${fmt(c.por_municipio)} de municipios que caen enteros en el distrito` : ""}.${c.dudosos ? ` Hasta ${fmt(c.dudosos)} votos de secciones que ya no existen, en municipios que el distrito comparte, no se pudieron asignar.` : ""}`;
+  const c = x.reconstruida!; const t = c.exactos + c.por_historico + c.por_municipio;
+  return `${fmt(t)} votos asignados: ${fmt(c.exactos)} de secciones que existen igual hoy${c.por_historico ? `, ${fmt(c.por_historico)} de secciones reseccionadas o fusionadas (según el histórico del INE)` : ""}${c.por_municipio ? ` y ${fmt(c.por_municipio)} de municipios que caen enteros en el distrito` : ""}.${c.dudosos ? ` Hasta ${fmt(c.dudosos)} votos de secciones que ya no existen, en municipios que el distrito comparte, no se pudieron asignar.` : ""}`;
 }
 
 function AvisoReconstruida({ r, lugar }: { r: Resultado; lugar: string }) {
-  const c = r.reconstruida!; const t = c.exactos + c.por_municipio;
+  const c = r.reconstruida!; const t = c.exactos + c.por_historico + c.por_municipio;
   return (
     <p className="aviso text-xs">
       <b>Elección reconstruida</b>: en {r.anio} {lugar} no existía con esta geografía. Se sumaron las secciones que hoy forman el distrito
-      ({fmt(r.secciones)} secciones, {fmt(t)} votos{c.por_municipio ? `, ${fmt(c.por_municipio)} de ellos por municipio completo` : ""}).
-      {c.dudosos > 0 && <> Quedaron sin asignar hasta {fmt(c.dudosos)} votos de secciones que ya no existen en municipios que el distrito comparte: las cifras absolutas pueden quedar algo bajas; los porcentajes son más estables.</>}
+      ({fmt(r.secciones)} secciones, {fmt(t)} votos{c.por_historico ? `; ${fmt(c.por_historico)} de secciones que después se dividieron o fusionaron, ubicadas con el histórico de secciones del INE` : ""}{c.por_municipio ? `; ${fmt(c.por_municipio)} por municipio completo` : ""}).
+      {c.dudosos > 0 && <> Quedaron sin asignar hasta {fmt(c.dudosos)} votos de secciones que no se pudieron ubicar, en municipios que el distrito comparte: las cifras absolutas pueden quedar algo bajas; los porcentajes son más estables.</>}
       <Ayuda clave="reconstruccion_distrital" />
     </p>);
 }

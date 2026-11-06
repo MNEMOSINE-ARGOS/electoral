@@ -14,7 +14,7 @@ export type Resultado = {
   anio: number; extraordinaria: boolean; fuentes: string[]; confianza: string | null; votos_totales: number | null; nulos: number | null;
   no_registrados: number | null; lista_nominal: number | null; secciones: number | null; partidos: Record<string, number>;
   /** Solo en distritos federales: elección de otra distritación, reconstruida sumando las secciones del distrito vigente (lib/reconstruccion.ts).
-   *  Votos asignados por sección idéntica, por municipio entero, y votos de secciones que ya no existen que podrían ser del distrito. */
-  reconstruida?: { exactos: number; por_municipio: number; dudosos: number };
+   *  Votos asignados por sección idéntica, por la genealogía de secciones del INE, por municipio entero, y votos de secciones que ya no existen que podrían ser del distrito. */
+  reconstruida?: { exactos: number; por_historico: number; por_municipio: number; dudosos: number };
 };
 export type Municipio = { clave_inegi: number; id_estado: number; nombre: string; abreviatura?: string };

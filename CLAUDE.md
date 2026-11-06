@@ -71,6 +71,7 @@ lib/
   tendencia.ts        tendencia de una sección frente al país y su estado
   pisoTecho.ts        piso y techo histórico por partido
   reconstruccion.ts   serie de un distrito federal con la geografía vigente: suma por sección de las elecciones de otras distritaciones
+  historico.ts        genealogía oficial de secciones (INE): destinos(), origenes(), hijasDe(); la usan la reconstrucción y la ficha de sección
   consultas.ts        consultas reutilizables (resultados por territorio, GRUPOS_EDAD)
   db.ts               pool de pg (q<T>()) y tabla de usuarios
   auth.ts             cookie firmada (Web Crypto)        vigencia.ts  usuario activo + rol vigente (caché 30 s)
@@ -85,6 +86,8 @@ scripts/sectores_geojson.ts  GeoJSON de sectores → data/sectores/<clave_inegi>
                          archivo NO se copian, por decisión del usuario). Se registra en lib/sectores.ts; lo sirve /api/sectores y en el
                          mapa del municipio es el límite «Sectores» (organización propia, no del INE). Las secciones nuevas heredan el sector
                          de la sección de la que salieron. Hoy: Torreón, 10 sectores, 446 secciones
+scripts/historico_secciones.ts  histórico de secciones del INE (Access PEF 1994-2024, corte dic 2025; se exporta a JSON con PowerShell, ver
+                         el encabezado) → data/historico_secciones.json: divisiones (reseccionamiento), fusiones (integración) y parciales
 scripts/prep_csv.ts      CSV del PREP (por acta) + CSV de candidaturas → data/prep/<estado>_<eleccion>_<anio>.json; se registra en lib/prep.ts
 data/prep/            PREP procesados (hoy: Coahuila, diputaciones locales 2026). lib/prep.ts los sirve a /api/estados, /api/mapa y /api/catalogo
 public/geo/           estados.geojson (nacional); <id_estado>/ = las 32 entidades: entidad, municipios, distritos_federales, distritos_locales,
@@ -123,7 +126,7 @@ Cada `(eleccion, anio, extraordinaria, fuente)` es **una elección distinta**: l
 
 **La sección no es una unidad fija.** El INE resecciona cada año: cuando una sección pasa de 3,000 electores desaparece y nace con números nuevos; también hay fusiones y cambios de municipio. `seccion_id` identifica la sección **en ese año**. Al comparar años, una sección que no existe en ambos queda «sin comparación»: avísalo en la interfaz, no lo rellenes. Hubo 1,178 secciones de 2024 que ya no existen en 2026.
 
-**El mapa distrital cambió en 1979, 1997, 2006, 2018 y 2024** (`eraDistrital()` en `lib/analisis.ts`). El mismo `id_distrito` en eras distintas no es la misma geografía: nunca se unen por `id_distrito` elecciones de eras distintas. Para el histórico de un distrito federal, `/api/presidencial?distrito=` devuelve los años de la era de `anio_ref` con el agregado oficial y los demás **reconstruidos** (`lib/reconstruccion.ts`, campo `reconstruida`): las secciones del distrito en la elección de referencia definen su territorio; los votos de otra elección van por sección idéntica (`seccion_id`) o, si la sección ya no existe, por municipio cuando el municipio cae entero en un distrito; las demás no se asignan (`dudosos`: votos de secciones desaparecidas en municipios que el distrito comparte) y nunca se reparten por proporción. Una fuente por año (la de `agg_est_totales`). Comprobado en Coahuila, diputaciones federales: los 8 distritos vigentes suman 92-99% de los votos por sección del estado en 1994-2021. Se marca «reconstruida» en la pantalla, con su «?» y cobertura. Los distritos locales son otra distritación: no se cruzan con los federales (su serie aún no se reconstruye).
+**El mapa distrital cambió en 1979, 1997, 2006, 2018 y 2024** (`eraDistrital()` en `lib/analisis.ts`). El mismo `id_distrito` en eras distintas no es la misma geografía: nunca se unen por `id_distrito` elecciones de eras distintas. Para el histórico de un distrito federal, `/api/presidencial?distrito=` devuelve los años de la era de `anio_ref` con el agregado oficial y los demás **reconstruidos** (`lib/reconstruccion.ts`, campo `reconstruida`): las secciones del distrito en la elección de referencia definen su territorio; los votos de otra elección van por sección idéntica (`seccion_id`); si la sección ya no existe, por la **genealogía oficial del INE** (`lib/historico.ts`: las secciones en que se dividió o con la que se fusionó, siguiendo varias generaciones; solo si todas caen en un mismo distrito) y, si no hay registro, por municipio cuando el municipio cae entero en un distrito; las demás no se asignan (`dudosos`) y nunca se reparten por proporción. Los movimientos parciales del histórico no reasignan votos. Una fuente por año (la de `agg_est_totales`). Comprobado, diputaciones federales 1994-2021: los distritos vigentes suman 98.9-100% de los votos por sección del estado en Coahuila y 99.0-99.9% en Nuevo León (sin la genealogía eran 92-99%). La genealogía ubica 92-97% de los votos de las secciones de cada año que ya no existen en 2024. Se marca «reconstruida» en la pantalla, con su «?» y cobertura. Los distritos locales son otra distritación: no se cruzan con los federales (su serie aún no se reconstruye).
 
 **Partidos y coaliciones.** Siglas en minúsculas; coaliciones unidas con `-` (`pan-pri-prd`, `pvem-pt-morena`); los votos de una coalición van **en su propia fila**, no se reparten. La sigla **`nan` es un partido real** (Nueva Alianza Nayarit): nunca la trates como vacío. `conve` = Convergencia (antecesor de MC). Independientes: `ind1`, `independiente`, o nombres propios.
 
@@ -227,7 +230,8 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 | Distritos federales | suman exactamente el total del estado en 2018 y 2024 |
 | Tendencia nacional | 72,895 secciones: 15,506 sigue · 40,836 parcial · 13,623 independiente · 2,930 sin datos; correlación mediana 0.57 con el país y 0.72 con el estado |
 | Sección 50338 (Coahuila) | tendencia «parcial»; piso y techo de presidencia (votos propios): Morena 358 (2018) a 500 (2024), votos posibles 466-500; diputaciones federales 2015-2024: PRI 236 a 456 |
-| Reconstrucción distrital, diputaciones federales, Coahuila 506 (Torreón) | 2021 reconstruida 134,908 votos (todos por sección idéntica); 2024 oficial 183,602 |
+| Reconstrucción distrital, diputaciones federales, Coahuila 506 (Torreón) | 2021 reconstruida 150,248 votos (134,908 por sección idéntica + 15,340 por la genealogía del INE, 0 sin asignar); 2024 oficial 183,602 |
+| Genealogía de secciones (`data/historico_secciones.json`) | 1,484 divisiones · 1,128 fusiones · 349 parciales; Coahuila 734 → 1762-1765 (2021) |
 | Electorado por edad, corte 2026-10-22 | país 101,728,768; Coahuila 2,501,241 (= suma de sus secciones); Torreón 568,905 |
 | Judicial 2025 | votos por candidatura en `jud_candidatura` = 486,063,196 |
 | Mapa de Coahuila, presidencia 2024 (`/api/mapa`) | 1,585,389 votos por sección = por distrito federal (8 distritos, los 8 Morena y aliados); 1,777 secciones, 1,761 con polígono |

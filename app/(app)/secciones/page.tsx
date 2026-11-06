@@ -28,6 +28,7 @@ type Sec = {
 type Resp = { anios_anteriores: number[]; anio_anterior: number | null; corte_lista_nominal: string | null; corte_edad: string | null; secciones: Sec[]; resumen: { total: number; clases: Record<string, number>; ganadores: Record<string, number>; bloques: Record<string, number>; cambiaron: number; comparables: number; participacion: number | null; tendencia?: Record<string, number> } | null };
 type Ficha = {
   seccion_id: number; seccion: number; municipio: { nombre: string } | null; aviso: string; corte_edad: string | null; grupos: string[]; piramide: { h: number[]; m: number[]; nb: number } | null;
+  genealogia?: { origenes: { seccion: number; tipo: "division" | "fusion" | "parcial"; anio: number | null }[]; destinos: number[] };
   historia: { eleccion: string; anio: number; primero: Lugar | null; segundo: Lugar | null; margen: number | null; votos_totales: number | null; lista_nominal: number | null; participacion: number | null }[];
 };
 type Lugar = { candidatura: string; votos: number; pct: number };
@@ -194,7 +195,15 @@ export default function Secciones() {
       {ficha && (
         <div className="fixed inset-0 z-50 grid place-items-center p-3" style={{ background: "rgba(2,6,23,.45)" }} onClick={() => setFicha(null)}>
           <div className="material w-full max-w-3xl max-h-[90vh] overflow-auto p-5 space-y-4" style={{ background: "var(--card-solid)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between"><div><h2 className="text-2xl font-bold">Sección {ficha.seccion}</h2><p style={{ color: "var(--fg-soft)" }}>{ficha.municipio?.nombre ?? ""}</p></div>
+            <div className="flex items-start justify-between"><div><h2 className="text-2xl font-bold">Sección {ficha.seccion}</h2><p style={{ color: "var(--fg-soft)" }}>{ficha.municipio?.nombre ?? ""}</p>
+              {ficha.genealogia && (ficha.genealogia.origenes.length > 0 || ficha.genealogia.destinos.length > 0) && (
+                <p className="text-xs pt-1" style={{ color: "var(--fg-mute)" }}>
+                  {ficha.genealogia.origenes.filter((o) => o.tipo === "division").map((o) => `Nació${o.anio ? ` en ${o.anio}` : ""} de la división de la sección ${o.seccion}. `).join("")}
+                  {ficha.genealogia.origenes.filter((o) => o.tipo === "fusion").map((o) => `Absorbió a la sección ${o.seccion}${o.anio ? ` (${o.anio})` : ""}. `).join("")}
+                  {ficha.genealogia.origenes.filter((o) => o.tipo === "parcial").map((o) => `Recibió parte de la sección ${o.seccion}${o.anio ? ` (${o.anio})` : ""}. `).join("")}
+                  {ficha.genealogia.destinos.length > 0 && `Ya no existe: su territorio pasó a ${ficha.genealogia.destinos.length === 1 ? "la sección" : "las secciones"} ${ficha.genealogia.destinos.join(", ")}. `}
+                  Fuente: histórico de secciones del INE.
+                </p>)}</div>
               <button className="btn btn-ghost" onClick={() => setFicha(null)} aria-label="Cerrar"><X size={16} /></button></div>
             {ficha.piramide ? <div><p className="label pb-2">Lista nominal por edad y sexo · corte {ficha.corte_edad}</p><Piramide grupos={ficha.grupos} h={ficha.piramide.h} m={ficha.piramide.m} nb={ficha.piramide.nb} /></div> : <p className="text-sm" style={{ color: "var(--fg-mute)" }}>Sin lista nominal por edad para esta sección (puede ser una sección nueva o ya inexistente).</p>}
             <div className="space-y-4">
