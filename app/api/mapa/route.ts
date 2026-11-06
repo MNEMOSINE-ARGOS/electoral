@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { q } from "@/lib/db";
 import { alcance } from "@/lib/partidos";
 import { indicadores, porCandidatura, claseUnidad, esEnfoque } from "@/lib/analisis";
+import { prepDe, unidadesPrep, metaPrep } from "@/lib/prep";
 
 // Datos para pintar el mapa de UNA entidad en UNA elección (tipo + año), al nivel pedido.
 // ?eleccion=presidente&anio=2024&estado=5&nivel=municipio|distrito|distrito_local|seccion[&enfoque=morena]
@@ -44,6 +45,13 @@ export async function GET(req: Request) {
       .map((v) => ({ id: porT.get(String(v.totales_id))!, partido: v.partido, votos: v.votos })) : [];
   } else return NextResponse.json({ error: "Nivel no válido" }, { status: 400 });
 
+  // Sin datos en la base pero con PREP registrado (lib/prep.ts): resultados preliminares, marcados como tales en la respuesta
+  const prep = prepDe(eleccion, anio, estado)[0];
+  if (!tots.length && prep) {
+    const campo = (["municipio", "distrito", "distrito_local"] as const).find((k) => Number(u.searchParams.get(k)));
+    const unidades = unidadesPrep(prep, nivel, enfoque, campo ? { campo, valor: Number(u.searchParams.get(campo)) } : undefined);
+    return NextResponse.json({ eleccion, anio, estado, nivel, prep: metaPrep(prep), unidades });
+  }
   const porId = new Map<string, Record<string, number>>();
   for (const v of votos) { if (!porId.has(v.id)) porId.set(v.id, {}); const r = porId.get(v.id)!; r[v.partido] = (r[v.partido] ?? 0) + Number(v.votos); }
   const unidades = tots.map((t) => {

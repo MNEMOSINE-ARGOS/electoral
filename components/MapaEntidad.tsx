@@ -8,7 +8,7 @@ import { nombreCandidatura } from "@/lib/analisis";
 import { pct } from "@/lib/format";
 import { useEnfoque, CeldaClase } from "@/components/Enfoque";
 import { MapaGeo, cargarGeo } from "@/components/MapaGeo";
-import { FichaUnidad, LeyendaMapa } from "@/components/MapaPiezas";
+import { FichaUnidad, LeyendaMapa, AvisoPrep, type PrepMeta } from "@/components/MapaPiezas";
 import { Ayuda } from "@/components/Ayuda";
 
 // Mapa de UNA entidad con cartografía del INE (public/geo/<id>/): municipios, distritos federales, distritos locales y secciones.
@@ -59,6 +59,7 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido }: { ent: En
   useEffect(() => { setFoco(null); }, [ent.id]);
 
   const [datos, setDatos] = useState<UnidadMapa[] | null>(null);
+  const [prep, setPrep] = useState<PrepMeta | null>(null);
   const [nombres, setNombres] = useState<Record<number, string>>({});
   const [conPoligono, setConPoligono] = useState<Set<number>>(new Set());
   const [sel, setSel] = useState<number | null>(null);
@@ -68,7 +69,8 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido }: { ent: En
   const url = `/geo/${ent.id}/${ARCHIVO[nivel]}.geojson`;
   useEffect(() => {
     setDatos(null); setSel(null);
-    api<{ unidades: UnidadMapa[] }>(`/api/mapa?eleccion=${eleccion}&anio=${anio}&estado=${ent.id}&nivel=${nivel}&enfoque=${enfoque}`).then((d) => setDatos(d.unidades)).catch(() => setDatos([]));
+    api<{ unidades: UnidadMapa[]; prep?: PrepMeta }>(`/api/mapa?eleccion=${eleccion}&anio=${anio}&estado=${ent.id}&nivel=${nivel}&enfoque=${enfoque}`)
+      .then((d) => { setDatos(d.unidades); setPrep(d.prep ?? null); }).catch(() => setDatos([]));
   }, [eleccion, anio, ent.id, nivel, enfoque]);
   useEffect(() => {
     cargarGeo(url).then((g) => {
@@ -124,6 +126,7 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido }: { ent: En
         )}
       </div>
 
+      {prep && <AvisoPrep meta={prep} />}
       {foco ? (
         <MapaFoco ent={ent} foco={foco} padre={porId.get(foco.id)} eleccion={eleccion} anio={anio} metrica={metrica} partido={partido} />
       ) : (
@@ -144,7 +147,7 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido }: { ent: En
             <div className="space-y-4">
               {s && sel !== null ? (
                 <div className="mapa-detalle space-y-2">
-                  <FichaUnidad nombre={nombres[sel] ?? String(sel)} u={s} metrica={metrica} partido={partido} />
+                  <FichaUnidad nombre={nombres[sel] ?? String(sel)} u={s} metrica={metrica} partido={partido} completo />
                   <button type="button" className="chip" onClick={() => setSel(null)}>Quitar selección</button>
                 </div>
               ) : (
@@ -156,7 +159,7 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido }: { ent: En
             </div>
           </div>
           <ul className="nota-metodo text-xs" style={{ color: "var(--fg-mute)" }}>
-            <li>Polígonos de la Base Geográfica Digital del INE ({ent.secciones.toLocaleString("es-MX")} secciones). Resultados: cómputos oficiales; el ganador es por candidatura (cada partido sumado a su coalición en esa boleta), una lectura analítica.</li>
+            <li>Polígonos de la Base Geográfica Digital del INE ({ent.secciones.toLocaleString("es-MX")} secciones). Resultados: {prep ? "PREP (preliminar, ver aviso arriba): actas contabilizadas de mayoría relativa, sin las especiales de representación proporcional; las actas sin sección (voto anticipado, prisión preventiva) cuentan solo en su distrito" : "cómputos oficiales"}; el ganador es por candidatura (cada partido sumado a su coalición en esa boleta), una lectura analítica.</li>
             {nivel === "seccion" && <li>La cartografía es la vigente: el INE resecciona cada año. {sinPoligono > 0 ? `${fmtN(sinPoligono)} secciones con resultados en ${anio} ya no existen en esta cartografía y no se dibujan.` : `Todas las secciones con resultados en ${anio} tienen polígono.`} Las que aparecen en gris no tienen resultados en esta elección.</li>}
             {(nivel === "distrito" || nivel === "distrito_local") && <li>{UNIDAD[nivel][1][0].toUpperCase() + UNIDAD[nivel][1].slice(1)} según la distritación vigente desde {nivel === "distrito" ? ent.df_desde : ent.dl_desde}.</li>}
             <li>Arrastra para mover; rueda, doble clic o + / − para acercar. <Ayuda clave="mapa_entidad" tam={12} /></li>
@@ -265,7 +268,7 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
           {padre && (
             <div className="mapa-detalle">
               <p className="label pb-1">Todo {foco.tipo === "municipio" ? "el municipio" : "el distrito"}</p>
-              <FichaUnidad nombre={foco.nombre} u={padre} metrica={metrica} partido={partido} />
+              <FichaUnidad nombre={foco.nombre} u={padre} metrica={metrica} partido={partido} completo />
             </div>
           )}
           {s && sel !== null ? (

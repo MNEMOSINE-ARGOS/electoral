@@ -7,6 +7,7 @@ export type UnidadMapa = {
   id: number; votos_totales: number | null; lista_nominal: number | null; participacion: number | null;
   ganador: string | null; p_ganador: number | null; segundo: string | null; margen: number | null;
   clase: Clase | null; margen_enfoque: number | null; p_enfoque: number | null; alc: Record<string, number>;
+  /** nombres de las candidaturas por partido o coalición (solo cuando la fuente los trae, p. ej. el PREP por distrito) */ candidatos?: Record<string, string>;
 };
 export type Metrica = "ganador" | "competitividad" | "participacion" | "partido";
 export const METRICAS: { id: Metrica; t: string; d: string }[] = [

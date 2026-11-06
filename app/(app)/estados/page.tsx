@@ -14,6 +14,7 @@ import { alcance, colorPartido, nombreEleccion } from "@/lib/partidos";
 import { fmt, pct } from "@/lib/format";
 import { ENFOQUES, ETIQ_CLASE, indicadores, nombreCandidatura, porCandidatura, claseUnidad } from "@/lib/analisis";
 import { METRICAS, colorUnidad, leyenda, partidosPresentes, type EntidadGeo, type Metrica, type UnidadMapa } from "@/lib/mapa";
+import { AvisoPrep, type PrepMeta } from "@/components/MapaPiezas";
 
 // Mapa nacional: UNA elección (cargo + año) por entidad. Cuatro maneras de colorear (quién ganó, qué tan reñido —desde el partido de
 // enfoque—, participación y fuerza de un partido), en mapa o en mosaico de cuadros iguales. La leyenda cuenta entidades y resalta las
@@ -40,12 +41,16 @@ export default function Estados() {
   useEffect(() => { fetch("/geo/entidades.json").then((r) => (r.ok ? r.json() : [])).then(setGeoEnt).catch(() => {}); cargarGeo("/geo/estados.geojson").catch(() => {}); }, []);
 
   const tipos = useMemo(() => [...new Set((cat?.elecciones ?? []).map((e) => e.eleccion))], [cat]);
-  const anios = useMemo(() => (cat?.elecciones ?? []).filter((e) => e.eleccion === eleccion && !e.extraordinaria).map((e) => e.anio).filter((a, i, arr) => arr.indexOf(a) === i).sort((a, b) => b - a), [cat, eleccion]);
+  // Años con datos en la base, más los que solo tienen PREP (preliminar, lib/prep.ts)
+  const aniosPrep = useMemo(() => new Set((cat?.prep ?? []).filter((p) => p.eleccion === eleccion).map((p) => p.anio)), [cat, eleccion]);
+  const anios = useMemo(() => [...(cat?.elecciones ?? []).filter((e) => e.eleccion === eleccion && !e.extraordinaria).map((e) => e.anio), ...aniosPrep]
+    .filter((a, i, arr) => arr.indexOf(a) === i).sort((a, b) => b - a), [cat, eleccion, aniosPrep]);
+  const [prep, setPrep] = useState<Record<number, PrepMeta>>({});
   useEffect(() => { if (anios.length && (anio === null || !anios.includes(anio))) setAnio(anios[0]); }, [anios, anio]);
   useEffect(() => {
     if (anio === null) return;
     setFilas(null);
-    api<{ estados: Fila[] }>(`/api/estados?eleccion=${eleccion}&anio=${anio}`).then((d) => setFilas(d.estados)).catch(() => setFilas([]));
+    api<{ estados: Fila[]; prep?: Record<number, PrepMeta> }>(`/api/estados?eleccion=${eleccion}&anio=${anio}`).then((d) => { setFilas(d.estados); setPrep(d.prep ?? {}); }).catch(() => setFilas([]));
   }, [eleccion, anio]);
 
   const nombres = useMemo(() => Object.fromEntries((cat?.estados ?? []).map((e) => [e.id_estado, e.nombre_corto])), [cat]);
@@ -98,7 +103,7 @@ export default function Estados() {
         <div className="mapa-ctl"><span className="label">Elección</span>
           <div className="flex flex-wrap gap-1.5">{tipos.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => setEleccion(t)}>{nombreEleccion[t] ?? t}</button>)}</div></div>
         <div className="mapa-ctl"><span className="label">Año</span>
-          <div className="flex flex-wrap gap-1.5">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}</button>)}</div></div>
+          <div className="flex flex-wrap gap-1.5">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)} title={aniosPrep.has(a) ? "Resultados preliminares (PREP), aún no son cómputo oficial" : undefined}>{a}{aniosPrep.has(a) && <span className="chip-prep">PREP</span>}</button>)}</div></div>
         <div className="mapa-ctl"><span className="label">Colorear por</span>
           <div className="flex flex-wrap items-center gap-2">
             <div className="seg" role="group" aria-label="Colorear por">{METRICAS.map((m) => <button key={m.id} type="button" aria-pressed={metrica === m.id} onClick={() => { setMetrica(m.id); setResaltar(null); }}>{m.t}</button>)}</div>
@@ -108,6 +113,7 @@ export default function Estados() {
         <p className="text-xs" style={{ color: "var(--fg-mute)" }}>{desc}{metrica === "competitividad" && " Cambia el partido de enfoque en la barra superior."}</p>
       </section>
 
+      {Object.keys(prep).length > 0 && filas && <AvisoPrep meta={Object.values(prep)[0]} donde={Object.keys(prep).map((k) => nombres[Number(k)]).join(", ")} />}
       {local && filas && filas.length > 0 && (
         <p className="aviso text-sm">{nombreEleccion[eleccion] ?? eleccion} es un cargo local: en {anio} votaron <b>{unidades.length} de 32</b> entidades; las demás aparecen en gris. La suma «nacional» de un cargo local no se compara entre años.</p>
       )}
@@ -131,7 +137,7 @@ export default function Estados() {
 
           <section className="material p-4 space-y-4" ref={detalle}>
             {sel !== null ? (
-              <DetalleEntidad nombre={nombres[sel]} u={porId.get(sel)} f={filas.find((x) => x.id_estado === sel)} anio={anio!} geo={!!entSel} onCerrar={() => setSel(null)} />
+              <DetalleEntidad nombre={nombres[sel]} u={porId.get(sel)} f={filas.find((x) => x.id_estado === sel)} anio={anio!} geo={!!entSel} esPrep={!!prep[sel]} onCerrar={() => setSel(null)} />
             ) : (
               <Lectura unidades={unidades} nombres={nombres} metrica={metrica} partido={partido} onSel={elegir} conGeo={(id) => !!conGeo(id)} />
             )}
@@ -214,7 +220,7 @@ function Lectura({ unidades, nombres, metrica, partido, onSel, conGeo }: {
   );
 }
 
-function DetalleEntidad({ nombre, u, f, anio, geo, onCerrar }: { nombre: string; u: UnidadMapa | undefined; f: Fila | undefined; anio: number; geo: boolean; onCerrar: () => void }) {
+function DetalleEntidad({ nombre, u, f, anio, geo, esPrep, onCerrar }: { nombre: string; u: UnidadMapa | undefined; f: Fila | undefined; anio: number; geo: boolean; esPrep: boolean; onCerrar: () => void }) {
   if (!u || !f) return (
     <div className="space-y-2"><h2 className="text-xl font-bold">{nombre}</h2><p className="text-sm" style={{ color: "var(--fg-mute)" }}>Sin elección este año.</p>
       <button className="chip" onClick={onCerrar}>Ver todas las entidades</button></div>);
@@ -223,7 +229,7 @@ function DetalleEntidad({ nombre, u, f, anio, geo, onCerrar }: { nombre: string;
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-2">
-        <div><p className="label">{anio}</p><h2 className="text-2xl font-bold">{nombre}</h2></div>
+        <div><p className="label">{anio}{esPrep && <span className="chip-prep">PREP · preliminar</span>}</p><h2 className="text-2xl font-bold">{nombre}</h2></div>
         <button className="chip" onClick={onCerrar}>Ver todas</button>
       </div>
       <div className="grid grid-cols-3 gap-2 text-center">

@@ -5,6 +5,7 @@
 Aplicación web de análisis electoral de México **por sección electoral** (Next.js 16 + PostgreSQL). Idioma de trabajo, de la interfaz y del código: **español**. Fecha de este documento: 2026-11-05.
 
 Este repositorio contiene **solo la aplicación**. Los datos los produce un proyecto aparte (pipeline en Python, «Data/»), que estandariza fuentes del INE y de investigadores y carga tablas agregadas a PostgreSQL. Aquí no se procesan fuentes crudas: la app **lee** esas tablas. Si una cifra de la base parece mal, el arreglo va en el pipeline, no en un parche de la app (ver §9).
+**Única excepción, decidida por el usuario: PREP** de elecciones que la base aún no tiene (`data/prep/`, `lib/prep.ts`, ver §4).
 
 ---
 
@@ -72,6 +73,8 @@ lib/
 proxy.ts              sesión obligatoria; /usuarios solo super (Next 16: «proxy» reemplaza a middleware y corre en Node)
 scripts/crear_superusuarios.ts
 scripts/geo_entidad.ts   BGD del INE (shapefiles de una entidad) → public/geo/<id_estado>/*.geojson + public/geo/entidades.json
+scripts/prep_csv.ts      CSV del PREP (por acta) + CSV de candidaturas → data/prep/<estado>_<eleccion>_<anio>.json; se registra en lib/prep.ts
+data/prep/            PREP procesados (hoy: Coahuila, diputaciones locales 2026). lib/prep.ts los sirve a /api/estados, /api/mapa y /api/catalogo
 public/geo/           estados.geojson (nacional); 5/ = Coahuila: entidad, municipios, distritos_federales, distritos_locales, secciones
 ```
 
@@ -124,6 +127,8 @@ Cada `(eleccion, anio, extraordinaria, fuente)` es **una elección distinta**: l
 **Confianza.** Cada elección (y cada `sec_resumen`) trae `confianza`: `alta` (oficial y confirmada por una fuente independiente), `media` (oficial sin segunda fuente), `baja`, `no_usar` o vacío (sin evaluar). **Por decisión del usuario no se exhibe en la interfaz** (`Confianza` en `components/Kpi.tsx` devuelve `null`): úsala para decidir qué mostrar o advertir, no la pintes como etiqueta sin que la pidan. En especial: alcaldes por sección **antes de 2015** vienen de una compilación académica (B. Calderón) con muchos estado-año `baja` o `no_usar`; las diputaciones locales y gubernaturas desde 2015 no se han contrastado con los institutos estatales; diputados federales 2003 tiene una diferencia de 4.4% sin explicar.
 
 **Cortes oficiales.** Las cifras son los cómputos oficiales en su fecha de corte (p. ej. 08/06/2024), **antes** de resoluciones del Tribunal Electoral.
+
+**PREP (preliminar).** Solo para elecciones que la base todavía no tiene; si la base tiene esa elección y entidad, el PREP se ignora. Se muestra **siempre** marcado «PREP · preliminar», con corte y % de actas (`AvisoPrep`); nunca como cómputo. Hoy solo lo ve el mapa nacional y el de la entidad; las demás pantallas no. Reglas de `scripts/prep_csv.ts`: solo actas contabilizadas; mayoría relativa = actas ordinarias + especiales de MR (sin las `2ERP`); las actas sin sección (`A` voto anticipado, `P` prisión preventiva) cuentan en su distrito y no en secciones ni municipios; la columna `C_PRI_UDC` es la fila de coalición `pri-udc`; el municipio de cada sección sale de la cartografía. El script se detiene si la suma de actas no da el total del encabezado del PREP. Cuando el pipeline cargue los cómputos, se quita el import de `lib/prep.ts`.
 
 **Elección judicial 2025.** No hay partidos: se vota por personas y cada elector marca varias candidaturas, así que `votos_totales` ≈ personas que votaron × marcas permitidas. Nunca comparar con votos de partidos ni sumar entre cargos. `candidatura_id` identifica a la persona; `no_candidato` se repite entre ámbitos.
 
@@ -208,6 +213,7 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 | Sección 50338 (Coahuila) | tendencia «parcial»; piso y techo de presidencia (votos propios): Morena 358 (2018) a 500 (2024), votos posibles 466-500; diputaciones federales 2015-2024: PRI 236 a 456 |
 | Judicial 2025 | votos por candidatura en `jud_candidatura` = 486,063,196 |
 | Mapa de Coahuila, presidencia 2024 (`/api/mapa`) | 1,585,389 votos por sección = por distrito federal (8 distritos, los 8 Morena y aliados); 1,777 secciones, 1,761 con polígono |
+| PREP Coahuila diputaciones locales 2026 (corte 08/06/2026 09:00, 97.9% de actas) | total del PREP con especiales 1,249,807 = encabezado; mayoría relativa 1,244,124 (16 distritos, los 16 PRI-UDC); secciones 1,242,559 (+1,565 de 25 actas sin sección); Torreón 288,388 en 441 secciones |
 
 ---
 

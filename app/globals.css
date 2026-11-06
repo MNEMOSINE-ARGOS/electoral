@@ -357,3 +357,6 @@ html { scroll-behavior: smooth; }
 .mapa-geo-lim { fill:none; stroke: var(--fg); stroke-width: 2.4; stroke-opacity: .8; stroke-linejoin: round; stroke-dasharray: 7 3; }
 .mapa-geo-grupo { text-anchor: middle; dominant-baseline: central; font-weight: 800; fill: var(--fg); stroke: var(--card-solid); paint-order: stroke;
   stroke-linejoin: round; pointer-events: none; letter-spacing: .03em; }
+.chip-prep { display:inline-block; margin-left:.35rem; padding:0 .4rem; border-radius:6px; font-size:.62rem; font-weight:800; letter-spacing:.05em; vertical-align:middle;
+  color: var(--rose-deep); background: var(--rose-soft); }
+.aviso-prep { border-color: color-mix(in srgb, var(--rose) 35%, transparent); background: color-mix(in srgb, var(--rose) 7%, transparent); }
