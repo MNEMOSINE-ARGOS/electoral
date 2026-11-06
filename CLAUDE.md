@@ -42,7 +42,9 @@ app/(app)/            pantallas (cliente)
                       gráficas de cobertura (API inicio, caché 1 h), cómo se recorre, índice de pantallas (número, resumen, vista previa y cifra; preguntas plegadas), conceptos y datos.
                       Cifras de arriba con conteo animado (components/Contador.tsx)
   page.tsx            «Resultados por cargo»: cargo → año → territorio (entidad, distrito, municipio, sección), unidades ganadas,
-                      competitividad, serie y piso/techo
+                      competitividad, serie y piso/techo. Electorado por edad y sexo del territorio en el corte más reciente
+                      (components/PerfilEdadTerritorio, API perfil-edad): pirámide, frente a su estado y al país, y cambio desde el corte
+                      de la elección. En un distrito federal, las elecciones de otras distritaciones salen «reconstruidas» (lib/reconstruccion.ts)
   historico/          evolución de un cargo en un territorio y elección A vs B
   municipios/         comparar territorios del mismo tipo de elección
   estados/            mapa nacional por entidad. «Colorear por» (lib/mapa METRICAS): quién ganó, qué tan reñido, campo de batalla
@@ -68,6 +70,7 @@ lib/
   analisis.ts         lecturas: porCandidatura, porBloque, familia, indicadores, pedersen, competitividad, ENFOQUES, claseEnfoque
   tendencia.ts        tendencia de una sección frente al país y su estado
   pisoTecho.ts        piso y techo histórico por partido
+  reconstruccion.ts   serie de un distrito federal con la geografía vigente: suma por sección de las elecciones de otras distritaciones
   consultas.ts        consultas reutilizables (resultados por territorio, GRUPOS_EDAD)
   db.ts               pool de pg (q<T>()) y tabla de usuarios
   auth.ts             cookie firmada (Web Crypto)        vigencia.ts  usuario activo + rol vigente (caché 30 s)
@@ -119,7 +122,7 @@ Cada `(eleccion, anio, extraordinaria, fuente)` es **una elección distinta**: l
 
 **La sección no es una unidad fija.** El INE resecciona cada año: cuando una sección pasa de 3,000 electores desaparece y nace con números nuevos; también hay fusiones y cambios de municipio. `seccion_id` identifica la sección **en ese año**. Al comparar años, una sección que no existe en ambos queda «sin comparación»: avísalo en la interfaz, no lo rellenes. Hubo 1,178 secciones de 2024 que ya no existen en 2026.
 
-**El mapa distrital cambió en 1979, 1997, 2006, 2018 y 2024** (`eraDistrital()` en `lib/analisis.ts`). El mismo `id_distrito` en eras distintas no es la misma geografía: las series por distrito solo usan la era vigente. Los distritos locales son otra distritación: no se cruzan con los federales.
+**El mapa distrital cambió en 1979, 1997, 2006, 2018 y 2024** (`eraDistrital()` en `lib/analisis.ts`). El mismo `id_distrito` en eras distintas no es la misma geografía: nunca se unen por `id_distrito` elecciones de eras distintas. Para el histórico de un distrito federal, `/api/presidencial?distrito=` devuelve los años de la era de `anio_ref` con el agregado oficial y los demás **reconstruidos** (`lib/reconstruccion.ts`, campo `reconstruida`): las secciones del distrito en la elección de referencia definen su territorio; los votos de otra elección van por sección idéntica (`seccion_id`) o, si la sección ya no existe, por municipio cuando el municipio cae entero en un distrito; las demás no se asignan (`dudosos`: votos de secciones desaparecidas en municipios que el distrito comparte) y nunca se reparten por proporción. Una fuente por año (la de `agg_est_totales`). Comprobado en Coahuila, diputaciones federales: los 8 distritos vigentes suman 92-99% de los votos por sección del estado en 1994-2021. Se marca «reconstruida» en la pantalla, con su «?» y cobertura. Los distritos locales son otra distritación: no se cruzan con los federales (su serie aún no se reconstruye).
 
 **Partidos y coaliciones.** Siglas en minúsculas; coaliciones unidas con `-` (`pan-pri-prd`, `pvem-pt-morena`); los votos de una coalición van **en su propia fila**, no se reparten. La sigla **`nan` es un partido real** (Nueva Alianza Nayarit): nunca la trates como vacío. `conve` = Convergencia (antecesor de MC). Independientes: `ind1`, `independiente`, o nombres propios.
 
@@ -184,7 +187,9 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 - **Uso:** `<Ayuda clave="participacion" />`, o `<Ayuda titulo="…">contenido con los números de esa fila</Ayuda>` (así se explica «Votos posibles hoy» con la cuenta real de cada partido).
 - `Kpi` y las tarjetas `Dato` aceptan `ayuda="clave"`.
 - **Toda medida nueva lleva su entrada en el glosario y su «?».** Si cambia un cálculo, cambia su explicación.
-- Ya lo tienen: participación, votos emitidos, primera fuerza, margen, número efectivo de partidos, volatilidad, competitividad (general y con enfoque), lecturas (candidatura, boleta, alcance, bloque), piso, techo, rango, votos posibles hoy, con aliados y propios, cambio de ganador, continuidad, frente al país, relación, distancia, concurrentes, edad y sexo, votos para ganar, potencial, el selector de enfoque y cada métrica de los mapas (`mapa_<métrica>`: ganador, competitividad, batalla, cambio, participación, partido, bivariado, y `mapa_entidad`).
+- Ya lo tienen: participación, votos emitidos, primera fuerza, margen, número efectivo de partidos, volatilidad, competitividad (general y con enfoque), lecturas (candidatura, boleta, alcance, bloque), piso, techo, rango, votos posibles hoy, con aliados y propios, cambio de ganador, continuidad, frente al país, relación, distancia, concurrentes, edad y sexo, electorado por edad del territorio (`edad_territorio`), elección reconstruida (`reconstruccion_distrital`), votos para ganar, potencial, el selector de enfoque y cada métrica de los mapas (`mapa_<métrica>`: ganador, competitividad, batalla, cambio, participación, partido, bivariado, y `mapa_entidad`).
+- **Electorado por edad y sexo de un territorio** (`/api/perfil-edad`): corte con edad más reciente. País, estado, municipio y distrito federal vigente salen de `ln_edad_territorio`; distrito local, distrito de otra era y sección, de la suma de `ln_edad_seccion` (avisa cuántas secciones ya no están en el corte). El cambio «desde la elección» usa el corte más cercano anterior al 30 de junio del año y, si se armó por secciones, solo las secciones presentes en ambos cortes. Edad media con la marca de cada rango (65+ = 72).
+- **Gráfica de puntos de la lectura por sección** (`PerfilParticipacion`): la tarjeta de cada punto dice qué sección es, su lista nominal, su peso (lista ÷ lista de las secciones de la vista) y su perfil; al elegir una sección se siguen viendo todas y ella se resalta; tocar un punto la elige.
 - **Votos que faltan** (`faltanParaGanar` en `lib/analisis.ts`, campo `faltan` de `/api/mapa`): votos de la candidatura ganadora − los de la candidatura del partido de enfoque + 1; solo donde pierde. Es la misma definición que «Votos para ganar».
 
 ## 6. Usuarios y seguridad
@@ -221,6 +226,8 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 | Distritos federales | suman exactamente el total del estado en 2018 y 2024 |
 | Tendencia nacional | 72,895 secciones: 15,506 sigue · 40,836 parcial · 13,623 independiente · 2,930 sin datos; correlación mediana 0.57 con el país y 0.72 con el estado |
 | Sección 50338 (Coahuila) | tendencia «parcial»; piso y techo de presidencia (votos propios): Morena 358 (2018) a 500 (2024), votos posibles 466-500; diputaciones federales 2015-2024: PRI 236 a 456 |
+| Reconstrucción distrital, diputaciones federales, Coahuila 506 (Torreón) | 2021 reconstruida 134,908 votos (todos por sección idéntica); 2024 oficial 183,602 |
+| Electorado por edad, corte 2026-10-22 | país 101,728,768; Coahuila 2,501,241 (= suma de sus secciones); Torreón 568,905 |
 | Judicial 2025 | votos por candidatura en `jud_candidatura` = 486,063,196 |
 | Mapa de Coahuila, presidencia 2024 (`/api/mapa`) | 1,585,389 votos por sección = por distrito federal (8 distritos, los 8 Morena y aliados); 1,777 secciones, 1,761 con polígono |
 | PREP Coahuila diputaciones locales 2026 (corte 08/06/2026 09:00, 97.9% de actas) | total del PREP con especiales 1,249,807 = encabezado; mayoría relativa 1,244,124 (16 distritos, los 16 PRI-UDC); secciones 1,242,559 (+1,565 de 25 actas sin sección); Torreón 288,388 en 441 secciones |

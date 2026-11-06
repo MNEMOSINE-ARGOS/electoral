@@ -153,7 +153,7 @@ export function PisoTecho({ serie, cargoId, cargoNombre, lugar, terr, local }: {
           <li><b>Partidos</b>: solo los votos de su propio recuadro, nunca los de su coalición (si fueron en coalición, se indica el año).</li>
           <li><b>Coaliciones</b>: los votos de toda la alianza, solo en las elecciones en que compitió esa misma combinación.</li>
           <li><b>Votos posibles hoy</b>: lista nominal más reciente ({fmt(ln_ref)}) × participación histórica × su % de los votantes; el «?» de cada fila muestra la cuenta.</li>
-          <li>En secciones y distritos la geografía puede haber cambiado (reseccionamiento, redistritación).</li>
+          <li>En secciones y distritos la geografía puede haber cambiado (reseccionamiento, redistritación).{ord.some((x) => x.reconstruida) && <> En este distrito, las elecciones de {ord.filter((x) => x.reconstruida).map((x) => x.anio).join(", ")} son <b>reconstruidas</b> con la geografía vigente: pueden faltar votos de secciones que ya no existen, así que el piso de esos años puede quedar algo bajo.</>}</li>
         </ul>
       </Plegable>
     </section>

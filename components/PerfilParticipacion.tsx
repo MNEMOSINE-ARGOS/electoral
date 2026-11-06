@@ -34,7 +34,11 @@ function lectura(r: number | null, v: Var) {
 }
 
 /** Perfil por edad y sexo de las secciones cruzado con la participación de UNA elección. */
-export function PerfilParticipacion({ secciones, corte, anio, filtro = "" }: { secciones: SecPerfil[]; corte: string | null; anio: number; filtro?: string }) {
+export function PerfilParticipacion({ secciones, corte, anio, filtro = "", universo, resaltar = 0, onElegir }: {
+  secciones: SecPerfil[]; corte: string | null; anio: number; filtro?: string;
+  /** secciones que se dibujan como puntos (por defecto, las mismas); al elegir una sección, se siguen viendo todas y ella se resalta */ universo?: SecPerfil[];
+  resaltar?: number; onElegir?: (seccionId: number) => void;
+}) {
   const [v, setV] = useState<Var>("edad_media");
   const validas = useMemo(() => secciones.filter((s) => s[v] !== null && s.participacion !== null && s.participacion <= 100 && (s.lista_nominal ?? 0) >= 50), [secciones, v]);
   const r = useMemo(() => pearson(validas.map((s) => s[v]!), validas.map((s) => s.participacion!)), [validas, v]);
@@ -56,8 +60,18 @@ export function PerfilParticipacion({ secciones, corte, anio, filtro = "" }: { s
 
   const totLn = secciones.reduce((a, s) => a + (s.lista_nominal ?? 0), 0);
   const prom = (f: Var) => { const xs = secciones.filter((s) => s[f] !== null && s.lista_nominal); const w = xs.reduce((a, s) => a + s.lista_nominal!, 0); return w ? xs.reduce((a, s) => a + s[f]! * s.lista_nominal!, 0) / w : null; };
-  const puntos = validas.map((s) => ({ x: s[v]!, y: s.participacion!, z: s.lista_nominal ?? 1, s: s.seccion, g: s.ganador }));
-  const porGanador = useMemo(() => { const m = new Map<string, typeof puntos>(); for (const p of puntos) { const k = p.g ?? "—"; if (!m.has(k)) m.set(k, []); m.get(k)!.push(p); } return [...m.entries()].sort((a, b) => b[1].length - a[1].length); }, [puntos]);
+  // Puntos: todas las secciones del universo (aunque se haya elegido una); el peso es su lista nominal frente a la del universo
+  const base = universo ?? secciones;
+  const lnBase = base.reduce((a, s) => a + (s.lista_nominal ?? 0), 0);
+  const puntos = base.filter((s) => s[v] !== null && s.participacion !== null && s.participacion <= 100 && (s.lista_nominal ?? 0) >= 50)
+    .map((s) => ({ x: s[v]!, y: s.participacion!, z: s.lista_nominal ?? 1, s: s.seccion, id: s.seccion_id, g: s.ganador, sec: s, peso: lnBase ? (100 * (s.lista_nominal ?? 0)) / lnBase : null }));
+  type Punto = (typeof puntos)[number];
+  const sel = resaltar ? puntos.filter((p) => p.id === resaltar) : [];
+  const zs = puntos.map((p) => p.z);
+  const zMin = zs.length ? Math.min(...zs) : 0, zMax = zs.length ? Math.max(...zs) : 0;
+  const pesadas = [...base].filter((s) => s.lista_nominal).sort((a, b) => b.lista_nominal! - a.lista_nominal!).slice(0, 8);
+  const clic = (d: unknown) => { const id = (d as { payload?: Punto; id?: number })?.payload?.id ?? (d as { id?: number })?.id; if (id && onElegir) onElegir(id); };
+  const porGanador = useMemo(() => { const m = new Map<string, Punto[]>(); for (const p of puntos) { const k = p.g ?? "—"; if (!m.has(k)) m.set(k, []); m.get(k)!.push(p); } return [...m.entries()].sort((a, b) => b[1].length - a[1].length); }, [puntos]);
   const maxPart = Math.max(...grupos.map((g) => g.part ?? 0), 1);
   const tip = { background: "var(--card-solid)", border: "1px solid var(--line-strong)", borderRadius: 12, fontSize: 12 };
   const posterior = corte ? Number(corte.slice(0, 4)) > anio : false;
@@ -79,7 +93,7 @@ export function PerfilParticipacion({ secciones, corte, anio, filtro = "" }: { s
 
       <div className="grid xl:grid-cols-[1.25fr_1fr] gap-5">
         <div>
-          <p className="text-xs pb-1" style={{ color: "var(--fg-mute)" }}>Cada punto es una sección (tamaño = lista nominal; color = candidatura ganadora).</p>
+          <p className="text-xs pb-1" style={{ color: "var(--fg-mute)" }}>Cada punto es una sección: color = candidatura ganadora; tamaño = lista nominal (de {fmt(zMin)} a {fmt(zMax)} electores). Pasa el cursor para ver cuál es y cuánto pesa{onElegir ? "; tócalo para abrir su ficha" : ""}.</p>
           <div style={{ height: 360 }}>
             <ResponsiveContainer>
               <ScatterChart margin={{ left: -6, right: 12, top: 8, bottom: 18 }}>
@@ -88,9 +102,13 @@ export function PerfilParticipacion({ secciones, corte, anio, filtro = "" }: { s
                   label={{ value: VARS[v].eje, position: "insideBottom", offset: -12, fontSize: 11, fill: "var(--fg-mute)" }} />
                 <YAxis type="number" dataKey="y" name="Participación" unit="%" domain={["auto", "auto"]} stroke="var(--fg-mute)" fontSize={11} />
                 <ZAxis type="number" dataKey="z" range={[16, 120]} />
-                <Tooltip contentStyle={tip} cursor={{ strokeDasharray: "3 3" }}
-                  formatter={(val, n) => [n === "Participación" ? `${Number(val).toFixed(1)}%` : `${Number(val).toFixed(1)}${VARS[v].u}`, n]} />
-                {porGanador.map(([g, pts]) => <Scatter key={g} name={g === "—" ? "sin dato" : nombreCandidatura(g)} data={pts} fill={g === "—" ? "#94a3b8" : colorPartido(g)} fillOpacity={0.7} isAnimationActive={false} />)}
+                <Tooltip cursor={{ strokeDasharray: "3 3" }} content={({ active, payload }) => {
+                  const p = active ? (payload?.[0]?.payload as Punto | undefined) : undefined;
+                  return p ? <TipSeccion p={p} v={v} tip={tip} /> : null;
+                }} />
+                {porGanador.map(([g, pts]) => <Scatter key={g} name={g === "—" ? "sin dato" : nombreCandidatura(g)} data={pts} fill={g === "—" ? "#94a3b8" : colorPartido(g)}
+                  fillOpacity={resaltar ? 0.28 : 0.7} isAnimationActive={false} onClick={clic} style={{ cursor: onElegir ? "pointer" : undefined }} />)}
+                {sel.length > 0 && <Scatter name={`Sección ${sel[0].s}`} data={sel} fill={sel[0].g ? colorPartido(sel[0].g) : "#94a3b8"} stroke="var(--fg)" strokeWidth={2.5} isAnimationActive={false} />}
               </ScatterChart>
             </ResponsiveContainer>
           </div>
@@ -116,6 +134,22 @@ export function PerfilParticipacion({ secciones, corte, anio, filtro = "" }: { s
             </div>
           ))}
           <p className="text-xs" style={{ color: "var(--fg-mute)" }}>La barra es la participación del grupo (votos entre lista nominal).</p>
+          {pesadas.length > 1 && (
+            <div className="pt-2 space-y-1.5">
+              <p className="label">Las secciones que más pesan · electores</p>
+              <table className="t text-xs">
+                <thead><tr><th>Sección</th><th>Lista nominal</th><th>Peso</th><th>Particip.</th><th>{VARS[v].t}</th></tr></thead>
+                <tbody>{pesadas.map((s) => (
+                  <tr key={s.seccion_id} className={onElegir ? "cursor-pointer" : undefined} onClick={() => onElegir?.(s.seccion_id)}
+                    style={{ background: s.seccion_id === resaltar ? "color-mix(in srgb, var(--accion) 9%, transparent)" : undefined }}>
+                    <td className="font-bold whitespace-nowrap"><span className="inline-block size-2 rounded-full mr-1.5" style={{ background: s.ganador ? colorPartido(s.ganador) : "#94a3b8" }} />{s.seccion}</td>
+                    <td className="num">{fmt(s.lista_nominal)}</td><td className="num">{pct(lnBase ? (100 * s.lista_nominal!) / lnBase : null, 2)}</td>
+                    <td className="num">{pct(s.participacion)}</td><td className="num">{s[v] !== null ? `${s[v]!.toFixed(1)}${VARS[v].u}` : "—"}</td>
+                  </tr>))}</tbody>
+              </table>
+              <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Peso = su lista nominal ÷ la de las {fmt(base.length)} secciones de la vista ({fmt(lnBase)} electores).</p>
+            </div>
+          )}
         </div>
       </div>
       <p className="text-xs" style={{ color: "var(--fg-mute)" }}>
@@ -133,6 +167,24 @@ function Dato({ icon, t, v, n, color, ayuda }: { icon: React.ReactNode; t: strin
       <p className="label flex items-center gap-1.5">{icon}{t}{ayuda && <Ayuda clave={ayuda} />}</p>
       <p className="display text-[1.6rem] font-bold num" style={{ color: color ?? "var(--fg)" }}>{v}</p>
       {n && <p className="text-xs" style={{ color: "var(--fg-mute)" }}>{n}</p>}
+    </div>
+  );
+}
+
+/** Tarjeta de un punto: qué sección es, cuánto pesa en números absolutos y su perfil de edad y sexo. */
+function TipSeccion({ p, v, tip }: { p: { s: number; x: number; y: number; z: number; g: string | null; peso: number | null; sec: SecPerfil }; v: Var; tip: React.CSSProperties }) {
+  const s = p.sec;
+  return (
+    <div style={{ ...tip, padding: "8px 10px", maxWidth: 250 }} className="space-y-0.5">
+      <p className="font-bold text-[.85rem]">Sección {p.s}</p>
+      {p.g && <p><span className="inline-block size-2 rounded-full mr-1.5" style={{ background: colorPartido(p.g) }} />Ganó <b>{nombreCandidatura(p.g)}</b></p>}
+      <p><b className="num">{fmt(s.lista_nominal)}</b> electores{p.peso !== null && <> · <b>{pct(p.peso, 2)}</b> de la vista</>}</p>
+      <p>{fmt(s.votos_totales)} votos · participación <b>{pct(p.y)}</b></p>
+      <p style={{ color: "var(--fg-mute)" }}>{VARS[v].t}: <b style={{ color: "var(--fg)" }}>{p.x.toFixed(1)}{VARS[v].u}</b></p>
+      <p style={{ color: "var(--fg-mute)" }}>
+        {s.edad_media !== null && <>edad media {s.edad_media.toFixed(1)} · </>}{s.pct_18_29 !== null && <>18–29 {pct(s.pct_18_29)} · </>}{s.pct_65 !== null && <>65+ {pct(s.pct_65)} · </>}{s.mujeres_pct !== null && <>{pct(s.mujeres_pct)} mujeres</>}
+      </p>
+      {s.lista_nominal !== null && s.pct_18_29 !== null && <p style={{ color: "var(--fg-mute)" }}>≈ {fmt(Math.round((s.lista_nominal * s.pct_18_29) / 100))} jóvenes de 18 a 29 · ≈ {fmt(Math.round((s.lista_nominal * (s.pct_65 ?? 0)) / 100))} de 65 y más</p>}
     </div>
   );
 }

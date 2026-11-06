@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChevronRight, MapPin, Scale, Search } from "lucide-react";
 import { Buscador, type Opcion } from "@/components/Buscador";
 import { SeccionesInline } from "@/components/SeccionesInline";
@@ -16,6 +16,7 @@ import { alcance, colorPartido } from "@/lib/partidos";
 import { BLOQUES, ENFOQUES, ETIQ_CLASE, clasesDe, type Clase, indicadores, nombreCandidatura, pedersen, porBloque, porCandidatura, porFamilia } from "@/lib/analisis";
 import { useEnfoque } from "@/components/Enfoque";
 import { PisoTecho } from "@/components/PisoTecho";
+import { PerfilEdadTerritorio } from "@/components/PerfilEdadTerritorio";
 import { Ayuda } from "@/components/Ayuda";
 import { fmt, pct } from "@/lib/format";
 
@@ -169,7 +170,8 @@ export default function ResultadosPorCargo() {
     const mx: Record<string, number> = {};
     for (const f of filas) for (const [k, v] of Object.entries(f)) if (k !== "anio") mx[k] = Math.max(mx[k] ?? 0, v);
     const claves = Object.entries(mx).filter(([, v]) => v >= 5).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k]) => k);
-    return { filas, claves };
+    const rs = (serie ?? []).filter((x) => x.reconstruida && !x.extraordinaria && Object.keys(x.partidos).length).map((x) => x.anio);
+    return { filas, claves, rec: rs.length ? ([Math.min(...rs), Math.max(...rs)] as [number, number]) : null };
   }, [serie, lectura]);
 
   const nivelTxt: Record<Nivel, string> = { estado: "Entidades", distrito: "Distritos federales", distrito_local: "Distritos locales", municipio: "Municipios" };
@@ -259,6 +261,7 @@ export default function ResultadosPorCargo() {
               <Confianza nivel={r.confianza} />
             </div>
             <div className="space-y-3">{barras.slice(0, 10).map((b) => <Barra key={b.k} etiqueta={b.nombre} pct={b.p} color={b.color} valor={fmt(b.v)} />)}</div>
+            {r.reconstruida && <AvisoReconstruida r={r} lugar={lugar} />}
             {lectura === "candidatura" && <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Candidatura: cada partido se suma a la coalición más amplia que lo incluye en la boleta (p. ej. Morena + PT + PVEM). Es una inferencia de la boleta, no el registro oficial de candidaturas.</p>}
             {lectura === "alcance" && <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Alcance: votos del partido más los de cada coalición que integra. No suma 100% ni reparte votos.</p>}
             {lectura === "bloque" && <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Bloques: agrupación analítica de las coaliciones de cada elección (no oficial).</p>}
@@ -275,6 +278,9 @@ export default function ResultadosPorCargo() {
           </div>
         </section>
       )}
+
+      {/* 3a. Electorado por edad y sexo del territorio (corte más reciente) */}
+      {anio && <PerfilEdadTerritorio eleccion={cargoId} anio={anio} terr={terr} lugar={lugar} nombreEstado={nombreEstado(terr.estado)} />}
 
       {/* 3b. Piso y techo histórico (últimas 10 elecciones del cargo en el territorio) */}
       {serie && serie.length > 0 && <PisoTecho serie={serie} cargoId={cargoId} cargoNombre={c.nombre} lugar={lugar} terr={terr} local={c.ambito === "local"} />}
@@ -352,6 +358,7 @@ export default function ResultadosPorCargo() {
                 <YAxis stroke="var(--fg-mute)" fontSize={12} unit="%" tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={{ background: "var(--card-solid)", border: "1px solid var(--line-strong)", borderRadius: 12, fontSize: 12 }} formatter={(v) => `${v}%`} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
+                {graf.rec && <ReferenceArea x1={graf.rec[0]} x2={graf.rec[1]} fill="var(--fg)" fillOpacity={0.05} label={{ value: "reconstruidas por sección", position: "insideTopLeft", fontSize: 11, fill: "var(--fg-mute)" }} />}
                 {graf.claves.map((k) => <Line key={k} type="linear" dataKey={k} name={lectura === "bloque" ? BLOQUES[k]?.nombre ?? k : lectura === "candidatura" ? `Encabezada por ${k.toUpperCase()}` : nombreCandidatura(k)} stroke={lectura === "bloque" ? BLOQUES[k]?.color : colorPartido(k)} strokeWidth={2.4} dot={{ r: 3 }} isAnimationActive={false} />)}
               </LineChart>
             </ResponsiveContainer>
@@ -364,7 +371,7 @@ export default function ResultadosPorCargo() {
                 const v = ant ? pedersen(porFamilia(x.partidos), porFamilia(ant.partidos)) : null;
                 return (
                   <tr key={x.anio} className="cursor-pointer" onClick={() => setAnio(x.anio)} style={{ background: x.anio === anio ? "color-mix(in srgb, var(--accion) 7%, transparent)" : undefined }}>
-                    <td className="font-bold">{x.anio}</td>
+                    <td className="font-bold whitespace-nowrap">{x.anio}{x.reconstruida && <span className="chip !py-0 !px-1.5 ml-1.5 text-[10px]" title={textoCobertura(x)}>reconstruida</span>}</td>
                     <td><span className="font-bold" style={{ color: ix.ganador ? colorPartido(ix.ganador) : undefined }}>{ix.ganador ? nombreCandidatura(ix.ganador) : "—"}</span> {pct(ix.pGanador)}</td>
                     <td>{ix.margen?.toFixed(1) ?? "—"}</td><td>{ix.nep?.toFixed(1) ?? "—"}</td><td>{v !== null ? `${v.toFixed(0)}%` : "—"}</td>
                     <td>{pct(x.votos_totales && x.lista_nominal ? (100 * x.votos_totales) / x.lista_nominal : null)}</td><td>{fmt(x.votos_totales)}</td>
@@ -373,7 +380,7 @@ export default function ResultadosPorCargo() {
               })}</tbody>
             </table>
           </div>
-          <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Cada fila es una elección distinta: los votos nunca se suman entre años. Líneas rectas entre elecciones (no se inventan valores intermedios). «Fuerzas que compiten»: cuántas candidaturas tienen peso real (1 = una domina, 2 = pelean dos, 3 o más = voto repartido). «Voto que cambió»: qué parte de los votos pasó de un partido a otro respecto de la elección anterior (0% = igual, 100% = todo cambió); se mide por el partido que encabeza cada candidatura.{terr.distrito ? " Distrito: solo elecciones con el mismo mapa distrital." : ""}</p>
+          <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Cada fila es una elección distinta: los votos nunca se suman entre años. Líneas rectas entre elecciones (no se inventan valores intermedios). «Fuerzas que compiten»: cuántas candidaturas tienen peso real (1 = una domina, 2 = pelean dos, 3 o más = voto repartido). «Voto que cambió»: qué parte de los votos pasó de un partido a otro respecto de la elección anterior (0% = igual, 100% = todo cambió); se mide por el partido que encabeza cada candidatura.{terr.distrito && serie.some((x) => x.reconstruida) ? <> <b>Distrito</b>: las elecciones marcadas «reconstruida» son de otra distritación y se rehicieron sumando, sección por sección, el territorio del distrito vigente (lectura analítica, no el resultado oficial de aquel distrito). Pasa el cursor sobre la marca para ver cuántos votos se asignaron.<Ayuda clave="reconstruccion_distrital" /></> : terr.distrito ? " Distrito: solo elecciones con el mismo mapa distrital." : ""}</p>
         </section>
       )}
     </>
@@ -388,4 +395,21 @@ function Dato({ t, v, n, acento, color, ayuda }: { t: string; v: string; n?: str
       {n && <p className="text-xs" style={{ color: "var(--fg-mute)" }}>{n}</p>}
     </div>
   );
+}
+
+/** Cómo se armó una elección reconstruida del distrito (ver lib/reconstruccion.ts) */
+function textoCobertura(x: Resultado) {
+  const c = x.reconstruida!; const t = c.exactos + c.por_municipio;
+  return `${fmt(t)} votos asignados: ${fmt(c.exactos)} de secciones que existen igual hoy${c.por_municipio ? ` y ${fmt(c.por_municipio)} de municipios que caen enteros en el distrito` : ""}.${c.dudosos ? ` Hasta ${fmt(c.dudosos)} votos de secciones que ya no existen, en municipios que el distrito comparte, no se pudieron asignar.` : ""}`;
+}
+
+function AvisoReconstruida({ r, lugar }: { r: Resultado; lugar: string }) {
+  const c = r.reconstruida!; const t = c.exactos + c.por_municipio;
+  return (
+    <p className="aviso text-xs">
+      <b>Elección reconstruida</b>: en {r.anio} {lugar} no existía con esta geografía. Se sumaron las secciones que hoy forman el distrito
+      ({fmt(r.secciones)} secciones, {fmt(t)} votos{c.por_municipio ? `, ${fmt(c.por_municipio)} de ellos por municipio completo` : ""}).
+      {c.dudosos > 0 && <> Quedaron sin asignar hasta {fmt(c.dudosos)} votos de secciones que ya no existen en municipios que el distrito comparte: las cifras absolutas pueden quedar algo bajas; los porcentajes son más estables.</>}
+      <Ayuda clave="reconstruccion_distrital" />
+    </p>);
 }
