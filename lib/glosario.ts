@@ -60,6 +60,9 @@ export const GLOSARIO: Record<string, Entrada> = {
   mujeres: { t: "% mujeres", que: "Porcentaje de mujeres en la lista nominal." },
   reñidas: { t: "Muy reñidas", que: "Unidades donde la diferencia entre las dos primeras fuerzas fue menor a 5 puntos." },
   votos_para_ganar: { t: "Votos para ganar", que: "Votos adicionales que necesitaría el partido para superar a la candidatura ganadora.", como: "Votos de la ganadora − votos del partido + 1." },
+  mapa_entidad: { t: "Mapa por dentro de una entidad", que: "La misma elección pintada por municipio, distrito o sección, con los polígonos oficiales del INE.",
+    como: "Polígonos de la Base Geográfica Digital del INE, simplificados para la web. Los colores siguen la misma escala que el mapa nacional.",
+    ojo: "La cartografía es la vigente: secciones de años anteriores que ya no existen no se dibujan, y los distritos solo se muestran desde el año en que rige esa distritación." },
   potencial: { t: "Potencial por participación", que: "Votos extra que obtendría el partido si la sección votara tanto como la sección típica de la zona.",
     como: "(Participación mediana de las secciones mostradas − participación de la sección) × lista nominal × % del partido. Solo donde la sección vota por debajo de la mediana." },
 };

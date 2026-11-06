@@ -44,7 +44,9 @@ app/(app)/            pantallas (cliente)
                       competitividad, serie y piso/techo
   historico/          evolución de un cargo en un territorio y elección A vs B
   municipios/         comparar territorios del mismo tipo de elección
-  estados/            mapa nacional por entidad (geometrías en public/geo/; solo estados)
+  estados/            mapa nacional por entidad: colorear por quién ganó, qué tan reñido (sigue el enfoque), participación o fuerza de un
+                      partido; vista mapa o mosaico (cuadros iguales); leyenda que resalta; frases «lo que dice el mapa». Las entidades
+                      con cartografía (public/geo/entidades.json) se abren por municipio, distrito y sección (components/MapaEntidad)
   distritos/          distritos federales y locales, circunscripciones
   secciones/          lectura por sección, edad de la sección, tendencia frente al país, comparación y estrategia
   electorado/         lista nominal por edad y sexo
@@ -54,7 +56,8 @@ app/(app)/            pantallas (cliente)
 app/api/              rutas de datos (route handlers) y auth/
 components/           Buscador (autocompletado), Territorio, Piramide, PisoTecho, TendenciaSeccion, EdadSeccion,
                       Enfoque (contexto + selector + CeldaClase), EstrategiaSecciones, PerfilParticipacion, Waffle, Kpi,
-                      Plegable (detalle un nivel abajo), MiniGraficas (SVG; colores --serie-fed/--serie-loc validados para daltonismo)…
+                      Plegable (detalle un nivel abajo), MiniGraficas (SVG; colores --serie-fed/--serie-loc validados para daltonismo),
+                      MapaGeo (coroplético con zoom, tarjeta y etiquetas), MosaicoEstados, MapaPiezas (leyenda y ficha), MapaEntidad…
 lib/
   analisis.ts         lecturas: porCandidatura, porBloque, familia, indicadores, pedersen, competitividad, ENFOQUES, claseEnfoque
   tendencia.ts        tendencia de una sección frente al país y su estado
@@ -63,10 +66,13 @@ lib/
   db.ts               pool de pg (q<T>()) y tabla de usuarios
   auth.ts             cookie firmada (Web Crypto)        vigencia.ts  usuario activo + rol vigente (caché 30 s)
   password.ts         bcrypt                              superusuario.ts  guardia soloSuper()
+  mapa.ts             colores y leyendas de los mapas en pasos fijos (margen 5/10/20; participación 45/55/65/75; partido 10/20/35/50)
   navegacion.ts       pantallas de la app (menú lateral y portada): resumen, preguntas que responde, qué contiene, si usa enfoque
   partidos.ts         colores y nombres                   cargos.ts    los 6 cargos y su unidad de elección
 proxy.ts              sesión obligatoria; /usuarios solo super (Next 16: «proxy» reemplaza a middleware y corre en Node)
 scripts/crear_superusuarios.ts
+scripts/geo_entidad.ts   BGD del INE (shapefiles de una entidad) → public/geo/<id_estado>/*.geojson + public/geo/entidades.json
+public/geo/           estados.geojson (nacional); 5/ = Coahuila: entidad, municipios, distritos_federales, distritos_locales, secciones
 ```
 
 Patrón de las pantallas: `useEffect` → `api<T>(url)` (`lib/api.ts`) → `useMemo` para derivar. Los cálculos analíticos viven en `lib/` como **funciones puras** y se usan igual en servidor y cliente.
@@ -201,6 +207,7 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 | Tendencia nacional | 72,895 secciones: 15,506 sigue · 40,836 parcial · 13,623 independiente · 2,930 sin datos; correlación mediana 0.57 con el país y 0.72 con el estado |
 | Sección 50338 (Coahuila) | tendencia «parcial»; piso y techo de presidencia (votos propios): Morena 358 (2018) a 500 (2024), votos posibles 466-500; diputaciones federales 2015-2024: PRI 236 a 456 |
 | Judicial 2025 | votos por candidatura en `jud_candidatura` = 486,063,196 |
+| Mapa de Coahuila, presidencia 2024 (`/api/mapa`) | 1,585,389 votos por sección = por distrito federal (8 distritos, los 8 Morena y aliados); 1,777 secciones, 1,761 con polígono |
 
 ---
 
@@ -217,7 +224,11 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 
 ## 10. Limitaciones y pendientes
 
-- No hay polígonos de municipios, distritos ni secciones (solo estados): no hay mapas por sección.
+- Polígonos de municipios, distritos y secciones **solo de Coahuila** (BGD del INE, la carpeta de origen no está en el repo). Para otra
+  entidad: `bun scripts/geo_entidad.ts "<carpeta con SECCION.shp…>"`. El script reproyecta (UTM → lon/lat), simplifica, traduce el
+  municipio IFE → INEGI por nombre (se detiene si uno no coincide) y calcula desde qué año valen los distritos (≥ 98% de secciones en
+  el mismo distrito): en Coahuila, federales desde 2024 y locales desde 2023; antes no se dibujan. La cartografía es la vigente: las
+  secciones de años anteriores que ya no existen se cuentan como «sin polígono» (16 de 1,777 en 2024).
 - Lista nominal con edad solo en 8 cortes (2021-2026); sin edad antes de 2021; sin lista por sección antes de 2017.
 - Sin resultados posteriores al Tribunal Electoral (2018, 2021, 2024).
 - Locales por sección solo desde 2015 (alcaldes desde 1994, con salvedades de calidad).
