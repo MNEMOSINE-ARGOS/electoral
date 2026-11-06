@@ -17,8 +17,9 @@ export const cargarGeo = (url: string) => { if (!cache.has(url)) cache.set(url, 
 const W = 800;
 type T = { k: number; x: number; y: number };
 
-export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tooltip, etiquetas, contorno, encuadrar, resaltar, alto: altoMax = 620, etiquetaMin = 1400 }: {
-  url: string; idProp?: string; colores: Record<number, string>; seleccion?: number | null; onSelect?: (id: number | null) => void;
+export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tooltip, etiquetas, contorno, encuadrar, resaltar, filtro, alto: altoMax = 620, etiquetaMin = 1400 }: {
+  url: string; idProp?: string;
+  /** solo los polígonos con properties[prop] === valor (p. ej. las secciones de un municipio); el mapa se encuadra en ellos */ filtro?: { prop: string; valor: number } | null; colores: Record<number, string>; seleccion?: number | null; onSelect?: (id: number | null) => void;
   tooltip?: (id: number) => ReactNode; etiquetas?: Record<number, string>; contorno?: string | null; encuadrar?: number | null;
   /** ids que se dibujan con borde marcado (p. ej. los del mismo ganador al pasar por la leyenda) */ resaltar?: Set<number> | null;
   alto?: number; etiquetaMin?: number;
@@ -37,15 +38,17 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
 
   const { rutas, H, proy } = useMemo(() => {
     if (!gj) return { rutas: [], H: 500, proy: null };
-    const b = geoPath(geoMercator().fitWidth(W, gj as GeoPermissibleObjects)).bounds(gj as GeoPermissibleObjects);
+    const fc = filtro ? { ...gj, features: gj.features.filter((f) => Number(f.properties[filtro.prop]) === filtro.valor) } : gj;
+    if (!fc.features.length) return { rutas: [], H: 300, proy: null };
+    const b = geoPath(geoMercator().fitWidth(W, fc as GeoPermissibleObjects)).bounds(fc as GeoPermissibleObjects);
     const H = Math.min(altoMax, Math.max(260, Math.ceil(b[1][1] - b[0][1]) + 8));
-    const proy = geoMercator().fitExtent([[6, 6], [W - 6, H - 6]], gj as GeoPermissibleObjects);
+    const proy = geoMercator().fitExtent([[6, 6], [W - 6, H - 6]], fc as GeoPermissibleObjects);
     const g = geoPath(proy);
     return {
       H, proy,
-      rutas: gj.features.map((f) => ({ id: Number(f.properties[idProp]), d: g(f as GeoPermissibleObjects) ?? "", c: g.centroid(f as GeoPermissibleObjects), a: g.area(f as GeoPermissibleObjects) })),
+      rutas: fc.features.map((f) => ({ id: Number(f.properties[idProp]), d: g(f as GeoPermissibleObjects) ?? "", c: g.centroid(f as GeoPermissibleObjects), a: g.area(f as GeoPermissibleObjects) })),
     };
-  }, [gj, idProp, altoMax]);
+  }, [gj, idProp, altoMax, filtro?.prop, filtro?.valor]); // eslint-disable-line react-hooks/exhaustive-deps
   const rutasCont = useMemo(() => {
     if (!cont || !proy) return [];
     const g = geoPath(proy);

@@ -348,3 +348,9 @@ html { scroll-behavior: smooth; }
   .mapa-crece { animation: none; }
   .mosaico-c:hover, .mosaico-c:active { transform: none; }
 }
+.mapa-ruta { display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; font-size:.8rem; color: var(--fg-mute); }
+.mapa-ruta button { font-weight:700; color: var(--azul); cursor:pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: transparent; }
+.mapa-ruta button:hover { text-decoration-color: currentColor; }
+.mapa-ruta [aria-current] { font-weight:700; color: var(--fg-soft); }
+.mapa-pista { display:inline-flex; align-items:center; gap:.45rem; font-size:.82rem; font-weight:600; color: var(--azul);
+  padding:.35rem .7rem; border-radius:999px; background: color-mix(in srgb, var(--azul) 9%, transparent); }

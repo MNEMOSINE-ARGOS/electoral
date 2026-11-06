@@ -5,6 +5,7 @@ import { indicadores, porCandidatura, claseUnidad, esEnfoque } from "@/lib/anali
 
 // Datos para pintar el mapa de UNA entidad en UNA elección (tipo + año), al nivel pedido.
 // ?eleccion=presidente&anio=2024&estado=5&nivel=municipio|distrito|distrito_local|seccion[&enfoque=morena]
+//   con nivel=seccion, opcional &municipio=<clave_inegi> | &distrito=<id_distrito> | &distrito_local=<id_distrito>: solo las secciones de esa unidad
 // Cada unidad: ganador por candidatura, margen, clase (general o desde el enfoque), participación y % de alcance por partido.
 // Los distritos se leen tal cual vienen en la base: la pantalla decide si la cartografía vale para ese año (public/geo/entidades.json).
 type Tot = { id: string; votos_totales: string | null; lista_nominal: string | null };
@@ -29,8 +30,13 @@ export async function GET(req: Request) {
     votos = tots.length ? await q<Vot>("SELECT id_distrito::text id, partido, votos FROM agg_dis_votos WHERE eleccion=$1 AND anio=$2 AND extraordinaria=false AND id_distrito = ANY($3::int[])",
       [eleccion, anio, tots.map((t) => Number(t.id))]) : [];
   } else if (nivel === "seccion") {
+    // Opcional: solo las secciones de un municipio o distrito (&municipio=5035 | &distrito=503 | &distrito_local=507)
+    const filtros: [string, string][] = [["municipio", "clave_inegi"], ["distrito", "id_distrito_federal"], ["distrito_local", "id_distrito_local"]];
+    const f = filtros.find(([k]) => Number(u.searchParams.get(k)));
+    const extra = f ? ` AND ${f[1]} = $4` : "";
     const base = await q<Tot & { totales_id: string }>(
-      "SELECT totales_id, seccion_id::text id, votos_totales, lista_nominal FROM sec_resumen WHERE eleccion=$1 AND anio=$2 AND extraordinaria=false AND id_estado=$3 AND seccion_confiable", p);
+      `SELECT totales_id, seccion_id::text id, votos_totales, lista_nominal FROM sec_resumen WHERE eleccion=$1 AND anio=$2 AND extraordinaria=false AND id_estado=$3 AND seccion_confiable${extra}`,
+      f ? [...p, Number(u.searchParams.get(f[0]))] : p);
     const porT = new Map(base.map((b) => [String(b.totales_id), b.id]));
     tots = base;
     votos = base.length ? (await q<{ totales_id: string; partido: string; votos: string }>(
