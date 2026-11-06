@@ -17,11 +17,14 @@ export const cargarGeo = (url: string) => { if (!cache.has(url)) cache.set(url, 
 const W = 800;
 type T = { k: number; x: number; y: number };
 
-export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tooltip, etiquetas, contorno, encuadrar, resaltar, filtro, alto: altoMax = 620, etiquetaMin = 1400 }: {
+export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tooltip, etiquetas, contorno, encuadrar, resaltar, filtro, grupos, alto: altoMax = 620, etiquetaMin = 1400 }: {
   url: string; idProp?: string;
   /** solo los polígonos con properties[prop] === valor (p. ej. las secciones de un municipio); el mapa se encuadra en ellos */ filtro?: { prop: string; valor: number } | null; colores: Record<number, string>; seleccion?: number | null; onSelect?: (id: number | null) => void;
   tooltip?: (id: number) => ReactNode; etiquetas?: Record<number, string>; contorno?: string | null; encuadrar?: number | null;
   /** ids que se dibujan con borde marcado (p. ej. los del mismo ganador al pasar por la leyenda) */ resaltar?: Set<number> | null;
+  /** límites dibujados encima (con «contorno») y su etiqueta, centrada en la parte de cada grupo que cae en el mapa:
+   *  p. ej. los distritos dentro de un municipio. prop = propiedad de cada polígono base que dice a qué grupo pertenece. */
+  grupos?: { prop: string; etiquetas: Record<number, string> } | null;
   alto?: number; etiquetaMin?: number;
 }) {
   const [gj, setGj] = useState<GJ | null>(null);
@@ -46,7 +49,7 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
     const g = geoPath(proy);
     return {
       H, proy,
-      rutas: fc.features.map((f) => ({ id: Number(f.properties[idProp]), d: g(f as GeoPermissibleObjects) ?? "", c: g.centroid(f as GeoPermissibleObjects), a: g.area(f as GeoPermissibleObjects) })),
+      rutas: fc.features.map((f) => ({ id: Number(f.properties[idProp]), d: g(f as GeoPermissibleObjects) ?? "", c: g.centroid(f as GeoPermissibleObjects), a: g.area(f as GeoPermissibleObjects), p: f.properties })),
     };
   }, [gj, idProp, altoMax, filtro?.prop, filtro?.valor]); // eslint-disable-line react-hooks/exhaustive-deps
   const rutasCont = useMemo(() => {
@@ -54,6 +57,17 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
     const g = geoPath(proy);
     return cont.features.map((f) => ({ id: Number(f.properties.id), d: g(f as GeoPermissibleObjects) ?? "", b: g.bounds(f as GeoPermissibleObjects) }));
   }, [cont, proy]);
+
+  // Centro de cada grupo = promedio de los centros de sus polígonos, ponderado por área (solo la parte visible en este mapa)
+  const centrosGrupo = useMemo(() => {
+    if (!grupos) return [];
+    const acc = new Map<number, [number, number, number]>();
+    for (const r of rutas) {
+      const v = Number(r.p[grupos.prop]); if (!Number.isFinite(v) || !r.a) continue;
+      const a = acc.get(v) ?? [0, 0, 0]; a[0] += r.c[0] * r.a; a[1] += r.c[1] * r.a; a[2] += r.a; acc.set(v, a);
+    }
+    return [...acc].filter(([v]) => grupos.etiquetas[v]).map(([v, [x, y, a]]) => ({ v, x: x / a, y: y / a, t: grupos.etiquetas[v] }));
+  }, [rutas, grupos]);
 
   const pocos = rutas.length <= 60;
   const seleccionable = !!onSelect;
@@ -126,11 +140,15 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
             onKeyDown={(e) => { const id = idDe(e.target); if (id !== null && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onSelect?.(seleccion === id ? null : id); } }}>
             {capaBase}
           </g>
-          {rutasCont.map(({ id, d }) => <path key={`c${id}`} d={d} fill="none" stroke="var(--fg-soft)" strokeOpacity={0.55} strokeWidth={1.1} vectorEffect="non-scaling-stroke" pointerEvents="none" />)}
+          {rutasCont.map(({ id, d }) => grupos
+            ? <path key={`c${id}`} d={d} className="mapa-geo-lim" vectorEffect="non-scaling-stroke" pointerEvents="none" />
+            : <path key={`c${id}`} d={d} fill="none" stroke="var(--fg-soft)" strokeOpacity={0.55} strokeWidth={1.1} vectorEffect="non-scaling-stroke" pointerEvents="none" />)}
           {rutas.filter((r) => r.id === seleccion || (hover && r.id === hover.id)).map(({ id, d }) => (
             <path key={`s${id}`} d={d} fill="none" stroke="var(--fg)" strokeWidth={id === seleccion ? 2.6 : 1.6} vectorEffect="non-scaling-stroke" pointerEvents="none" />))}
           {etiquetas && rutas.filter((r) => etiquetas[r.id] && r.a * t.k * t.k >= etiquetaMin).map(({ id, c }) => (
             <text key={`e${id}`} x={c[0]} y={c[1]} className="mapa-geo-etq" fontSize={11 / t.k} strokeWidth={3 / t.k}>{etiquetas[id]}</text>))}
+          {centrosGrupo.map(({ v, x, y, t: txt }) => (
+            <text key={`g${v}`} x={x} y={y} className="mapa-geo-grupo" fontSize={13 / t.k} strokeWidth={4 / t.k}>{txt}</text>))}
         </g>
       </svg>
       <div className="mapa-geo-zoom" aria-label="Acercamiento">

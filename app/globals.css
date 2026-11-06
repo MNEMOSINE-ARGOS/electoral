@@ -354,3 +354,6 @@ html { scroll-behavior: smooth; }
 .mapa-ruta [aria-current] { font-weight:700; color: var(--fg-soft); }
 .mapa-pista { display:inline-flex; align-items:center; gap:.45rem; font-size:.82rem; font-weight:600; color: var(--azul);
   padding:.35rem .7rem; border-radius:999px; background: color-mix(in srgb, var(--azul) 9%, transparent); }
+.mapa-geo-lim { fill:none; stroke: var(--fg); stroke-width: 2.4; stroke-opacity: .8; stroke-linejoin: round; stroke-dasharray: 7 3; }
+.mapa-geo-grupo { text-anchor: middle; dominant-baseline: central; font-weight: 800; fill: var(--fg); stroke: var(--card-solid); paint-order: stroke;
+  stroke-linejoin: round; pointer-events: none; letter-spacing: .03em; }

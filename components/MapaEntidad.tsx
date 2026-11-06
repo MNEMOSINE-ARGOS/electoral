@@ -23,6 +23,15 @@ const UNIDAD: Record<Nivel, [string, string]> = { municipio: ["municipio", "muni
 /** Propiedad del GeoJSON de secciones que dice a qué unidad pertenece cada una (ver scripts/geo_entidad.ts) */
 const PROP_SECCION: Record<Foco["tipo"], string> = { municipio: "municipio", distrito: "df", distrito_local: "dl" };
 const FEDERALES = new Set(["presidente", "senado", "diputados_federales"]);
+/** Límites que se pueden dibujar encima de las secciones de un municipio o distrito (de la misma cartografía del INE) */
+type Limite = "df" | "dl" | "municipio";
+const LIMITES: Record<Limite, { t: string; corto: string; archivo: string }> = {
+  df: { t: "Distritos federales", corto: "DF", archivo: "distritos_federales" },
+  dl: { t: "Distritos locales", corto: "DL", archivo: "distritos_locales" },
+  municipio: { t: "Municipios", corto: "", archivo: "municipios" },
+};
+const LIMITES_DE: Record<Foco["tipo"], Limite[]> = { municipio: ["df", "dl"], distrito: ["dl", "municipio"], distrito_local: ["df", "municipio"] };
+type InfoSeccion = { n: string; municipio: number; df: number; dl: number };
 
 /** Ids de las unidades que comparten la categoría de la leyenda bajo el cursor. */
 function useResaltados(resaltar: string | null, unidades: UnidadMapa[], metrica: Metrica, partido: string, items: { k: string; color: string }[]) {
@@ -164,10 +173,14 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
 }) {
   const { enfoque } = useEnfoque();
   const [datos, setDatos] = useState<UnidadMapa[] | null>(null);
-  const [numeros, setNumeros] = useState<Record<number, string>>({});
+  const [info, setInfo] = useState<Record<number, InfoSeccion>>({});
+  const [nomMun, setNomMun] = useState<Record<number, string>>({});
   const [sel, setSel] = useState<number | null>(null);
   const [resaltar, setResaltar] = useState<string | null>(null);
   const [orden, setOrden] = useState<"margen" | "seccion" | "participacion">("margen");
+  const opciones = LIMITES_DE[foco.tipo];
+  const [limite, setLimite] = useState<Limite | null>(opciones[0]);
+  const [grupoHover, setGrupoHover] = useState<number | null>(null);
   const prop = PROP_SECCION[foco.tipo];
   const url = `/geo/${ent.id}/secciones.geojson`;
 
@@ -177,16 +190,44 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
       .then((d) => setDatos(d.unidades)).catch(() => setDatos([]));
   }, [eleccion, anio, ent.id, foco.tipo, foco.id, enfoque]);
   useEffect(() => {
-    cargarGeo(url).then((g) => setNumeros(Object.fromEntries(g.features
-      .filter((f) => Number(f.properties[prop]) === foco.id).map((f) => [Number(f.properties.id), String(f.properties.seccion)]))));
+    cargarGeo(url).then((g) => setInfo(Object.fromEntries(g.features.filter((f) => Number(f.properties[prop]) === foco.id).map((f) => {
+      const p = f.properties as { id: number; seccion: number; municipio: number; df: number; dl: number };
+      return [p.id, { n: String(p.seccion), municipio: p.municipio, df: p.df, dl: p.dl }];
+    }))));
   }, [url, prop, foco.id]);
+  useEffect(() => {
+    cargarGeo(`/geo/${ent.id}/municipios.geojson`).then((g) => setNomMun(Object.fromEntries(g.features.map((f) => [Number(f.properties.id), String(f.properties.nombre)]))));
+  }, [ent.id]);
+  const numeros = useMemo(() => Object.fromEntries(Object.entries(info).map(([k, v]) => [k, v.n])), [info]);
+  /** Nombre de un grupo del límite elegido (DF 6, DL 9, Torreón) */
+  const nombreGrupo = (l: Limite, v: number) => l === "municipio" ? (nomMun[v] ?? String(v)) : `${LIMITES[l].corto} ${v % 100}`;
+  const grupos = useMemo(() => {
+    if (!limite) return null;
+    const vs = [...new Set(Object.values(info).map((x) => x[limite]))];
+    return { prop: limite, etiquetas: Object.fromEntries(vs.map((v) => [v, nombreGrupo(limite, v)])) };
+  }, [limite, info, nomMun]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtro = useMemo(() => ({ prop, valor: foco.id }), [prop, foco.id]);
   const porId = useMemo(() => new Map((datos ?? []).map((u) => [u.id, u])), [datos]);
   const colores = useMemo(() => Object.fromEntries((datos ?? []).map((u) => [u.id, colorUnidad(u, metrica, partido)])), [datos, metrica, partido]);
   const enMapa = useMemo(() => (datos ?? []).filter((u) => numeros[u.id] !== undefined), [datos, numeros]);
   const ley = useMemo(() => leyenda(enMapa, metrica, partido, enfoque), [enMapa, metrica, partido, enfoque]);
-  const idsResaltados = useResaltados(resaltar, enMapa, metrica, partido, ley.items);
+  const idsLeyenda = useResaltados(resaltar, enMapa, metrica, partido, ley.items);
+  const idsResaltados = useMemo(() => grupoHover !== null && limite
+    ? new Set(Object.entries(info).filter(([, x]) => x[limite] === grupoHover).map(([k]) => Number(k))) : idsLeyenda, [grupoHover, limite, info, idsLeyenda]);
+  // Resumen por grupo (p. ej. cada distrito dentro del municipio): secciones, votos, participación y secciones ganadas por candidatura
+  const porGrupo = useMemo(() => {
+    if (!limite) return [];
+    const m = new Map<number, { v: number; n: number; vt: number; ln: number; gan: Map<string, number> }>();
+    for (const u of enMapa) {
+      const v = info[u.id]?.[limite]; if (v === undefined) continue;
+      const g = m.get(v) ?? { v, n: 0, vt: 0, ln: 0, gan: new Map() };
+      g.n++; g.vt += u.votos_totales ?? 0; g.ln += u.lista_nominal ?? 0;
+      if (u.ganador) g.gan.set(u.ganador, (g.gan.get(u.ganador) ?? 0) + 1);
+      m.set(v, g);
+    }
+    return [...m.values()].sort((a, b) => a.v - b.v);
+  }, [limite, enMapa, info]);
   const nPoligonos = Object.keys(numeros).length;
   const sinPoligono = (datos ?? []).length - enMapa.length;
   const sinDatos = nPoligonos - enMapa.length;
@@ -197,14 +238,25 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
       : enfoque !== "general" ? Math.abs(a.margen_enfoque ?? 999) - Math.abs(b.margen_enfoque ?? 999) : (a.margen ?? 999) - (b.margen ?? 999)),
   [datos, orden, enfoque]);
   const s = sel !== null ? porId.get(sel) : undefined;
-  const nombre = (id: number) => `Sección ${numeros[id] ?? id % 10000}`;
+  const nombre = (id: number) => {
+    const x = info[id];
+    const extra = x ? (foco.tipo === "municipio" ? [`DF ${x.df % 100}`, `DL ${x.dl % 100}`] : [nomMun[x.municipio], foco.tipo === "distrito" ? `DL ${x.dl % 100}` : `DF ${x.df % 100}`]).filter(Boolean).join(" · ") : "";
+    return `Sección ${x?.n ?? id % 10000}${extra ? ` · ${extra}` : ""}`;
+  };
 
   return (
     <>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="label">Límites</span>
+            <div className="seg" role="group" aria-label="Límites dibujados encima">
+              <button type="button" aria-pressed={limite === null} onClick={() => setLimite(null)}>Ninguno</button>
+              {opciones.map((l) => <button key={l} type="button" aria-pressed={limite === l} onClick={() => setLimite(l)}>{LIMITES[l].t}</button>)}
+            </div>
+          </div>
           {datos === null ? <div className="skeleton w-full" style={{ aspectRatio: "800 / 560" }} /> : (
-            <MapaGeo key={`${foco.tipo}-${foco.id}`} url={url} filtro={filtro} colores={colores} seleccion={sel} onSelect={setSel} resaltar={idsResaltados}
+            <MapaGeo key={`${foco.tipo}-${foco.id}`} url={url} filtro={filtro} grupos={grupos} contorno={limite ? `/geo/${ent.id}/${LIMITES[limite].archivo}.geojson` : null} colores={colores} seleccion={sel} onSelect={setSel} resaltar={idsResaltados}
               etiquetas={numeros} etiquetaMin={420}
               tooltip={(id) => <FichaUnidad nombre={nombre(id)} u={porId.get(id)} metrica={metrica} partido={partido} nota="Sin resultados de esta elección en esta sección" />} />
           )}
@@ -229,6 +281,34 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
         </div>
       </div>
 
+      {limite && porGrupo.length > 0 && (
+        <div className="space-y-2">
+          <p className="font-bold">{LIMITES[limite].t} dentro de {foco.tipo === "municipio" ? foco.nombre : "este distrito"} <span className="font-normal text-sm" style={{ color: "var(--fg-mute)" }}>· pasa el cursor por una fila para ubicarlo</span></p>
+          <div className="overflow-auto">
+            <table className="t">
+              <thead><tr><th>{limite === "municipio" ? "Municipio" : "Distrito"}</th><th>Secciones</th><th>Votos</th><th>Particip.</th><th>Secciones ganadas</th></tr></thead>
+              <tbody>{porGrupo.map((g) => {
+                const gan = [...g.gan].sort((a, b) => b[1] - a[1]);
+                return (
+                  <tr key={g.v} onPointerEnter={() => setGrupoHover(g.v)} onPointerLeave={() => setGrupoHover(null)} tabIndex={0}
+                    onFocus={() => setGrupoHover(g.v)} onBlur={() => setGrupoHover(null)}
+                    style={grupoHover === g.v ? { background: "color-mix(in srgb, var(--fg) 6%, transparent)" } : undefined}>
+                    <td className="font-semibold whitespace-nowrap">{nombreGrupo(limite, g.v)}</td>
+                    <td className="num">{fmtN(g.n)}</td>
+                    <td className="num">{fmtN(g.vt)}</td>
+                    <td className="num">{pct(g.ln ? (100 * g.vt) / g.ln : null)}</td>
+                    <td className="min-w-[220px]">
+                      <div className="mapa-barra" style={{ height: 9 }} aria-hidden>{gan.map(([p, n]) => <i key={p} style={{ flexGrow: n, background: colorPartido(p) }} />)}</div>
+                      <span className="text-xs" style={{ color: "var(--fg-soft)" }}>{gan.slice(0, 3).map(([p, n]) => `${nombreCandidatura(p)} ${n}`).join(" · ")}</span>
+                    </td>
+                  </tr>);
+              })}</tbody>
+            </table>
+          </div>
+          <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Solo la parte de cada {limite === "municipio" ? "municipio" : "distrito"} que cae {foco.tipo === "municipio" ? "en este municipio" : "en este distrito"}, según la cartografía vigente ({limite === "df" ? `distritación federal vigente desde ${ent.df_desde}` : limite === "dl" ? `distritación local vigente desde ${ent.dl_desde}` : "límites municipales del INE"}). Votos y participación suman las secciones con polígono: no es el resultado oficial del distrito completo.</p>
+        </div>
+      )}
+
       {datos && datos.length > 0 && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -247,7 +327,7 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
                 return (
                   <tr key={u.id} className="cursor-pointer" onClick={() => setSel(u.id === sel ? null : u.id)} aria-selected={u.id === sel}
                     style={u.id === sel ? { background: "color-mix(in srgb, var(--accion) 10%, transparent)" } : undefined}>
-                    <td className="font-semibold num">{u.id % 10000}{numeros[u.id] === undefined && <span className="text-xs font-normal" style={{ color: "var(--fg-mute)" }} title="No existe en la cartografía vigente"> · sin polígono</span>}</td>
+                    <td className="font-semibold num whitespace-nowrap">{u.id % 10000}{limite && info[u.id] && <span className="text-xs font-normal" style={{ color: "var(--fg-mute)" }}> · {nombreGrupo(limite, info[u.id][limite])}</span>}{numeros[u.id] === undefined && <span className="text-xs font-normal" style={{ color: "var(--fg-mute)" }} title="No existe en la cartografía vigente"> · sin polígono</span>}</td>
                     <td><span className="mapa-ley-c inline-block mr-1 align-middle" style={{ background: u.ganador ? colorPartido(u.ganador) : undefined }} />{u.ganador ? nombreCandidatura(u.ganador) : "—"}</td>
                     <td className="num">{pct(u.p_ganador)}</td>
                     <td className="num">{m === null ? "—" : `${enfoque !== "general" && m > 0 ? "+" : ""}${m.toFixed(1)}`}</td>
