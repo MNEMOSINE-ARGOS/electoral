@@ -66,5 +66,7 @@ export async function GET(req: Request) {
       margen: ind.margen === null ? null : +ind.margen.toFixed(1), ...claseUnidad(cand, ind.margen, enfoque), alc,
     };
   });
-  return NextResponse.json({ eleccion, anio, estado, nivel, unidades });
+  // Datos de la base que son un PREP cargado (fuente «prep_…», scripts/cargar_prep.ts): siguen marcados como preliminares
+  const esPrep = prep && (await q<{ fuente: string }>("SELECT fuente FROM agg_est_totales WHERE eleccion=$1 AND anio=$2 AND extraordinaria=false AND id_estado=$3 LIMIT 1", p))[0]?.fuente.startsWith("prep");
+  return NextResponse.json({ eleccion, anio, estado, nivel, unidades, ...(esPrep ? { prep: metaPrep(prep) } : {}) });
 }

@@ -8,8 +8,8 @@ export type Estado = { id_estado: number; nombre: string; nombre_corto: string; 
 export type EleccionCat = { eleccion: string; anio: number; extraordinaria: boolean; fuente: string; estados: number; confianza: string | null; tiene_municipio: boolean };
 export type Corte = { fecha_corte: string; tipo_corte: string; tiene_edad: boolean };
 export type Catalogo = { estados: Estado[]; elecciones: EleccionCat[]; cortes: Corte[];
-  /** elecciones con PREP (preliminar) que aún no están en la base (lib/prep.ts): solo las usa el mapa nacional */
-  prep?: { eleccion: string; anio: number; estado: number; corte: string; pct_actas: number }[] };
+  /** elecciones con resultados PREP (preliminares, lib/prep.ts), estén o no cargadas en la base: toda pantalla las marca (components/Prep) */
+  prep?: { eleccion: string; anio: number; estado: number; corte: string; pct_actas: number; actas_contabilizadas: number; actas_esperadas: number; titulo?: string }[] };
 export type Resultado = {
   anio: number; extraordinaria: boolean; fuentes: string[]; confianza: string | null; votos_totales: number | null; nulos: number | null;
   no_registrados: number | null; lista_nominal: number | null; secciones: number | null; partidos: Record<string, number>;

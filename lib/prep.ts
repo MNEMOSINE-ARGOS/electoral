@@ -1,6 +1,7 @@
-// Resultados PREP (preliminares) que todavía no están en la base. Los genera scripts/prep_csv.ts en data/prep/ y se registran aquí.
-// Son una excepción a «la app solo lee la base»: cuando el pipeline cargue los cómputos de esa elección, se quita la línea de aquí
-// (la base manda: si ya hay datos de esa elección y entidad en la base, el PREP se ignora).
+// Resultados PREP (preliminares). Los genera scripts/prep_csv.ts en data/prep/ y se registran aquí. Este registro dice qué
+// elecciones son PREP para marcarlas en toda la app; para que las lean todos los módulos se cargan a la base con
+// scripts/cargar_prep.ts (fuente «prep_…»). Sin cargar, los mapas las leen de aquí como respaldo; si la base ya tiene esa
+// elección y entidad, la base manda. Cuando el pipeline cargue los cómputos: cargar_prep.ts --revertir y quitar la línea de aquí.
 // En la interfaz siempre se presentan como PREP, preliminar, con su corte y su % de actas: nunca como cómputo oficial.
 import coah2026 from "@/data/prep/5_diputados_locales_mr_2026.json";
 import { alcance } from "@/lib/partidos";

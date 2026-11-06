@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { api, type Municipio, type Resultado } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
+import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
 import { Territorio, type Sel } from "@/components/Territorio";
 import { Cargando } from "@/components/Kpi";
 import { colorPartido, nombreEleccion } from "@/lib/partidos";
@@ -56,7 +57,8 @@ export default function Comparar() {
       </header>
       <section className="material p-4 space-y-4">
         <div className="flex flex-wrap gap-2">{tipos.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => setEleccion(t)}>{nombreEleccion[t] ?? t}</button>)}</div>
-        <div className="flex flex-wrap gap-2">{aniosU.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}</button>)}</div>
+        <div className="flex flex-wrap gap-2">{aniosU.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
+        <AvisoSiPrep eleccion={eleccion} anio={anio} />
         {cat && <Territorio estados={cat.estados} valor={sel} onChange={setSel} permiteNacional={false} />}
         <div className="flex flex-wrap gap-2">
           <button className="btn" disabled={!sel.estado || !anio} onClick={() => (sel.municipio ? agregar("municipio", sel.municipio) : agregar("estado", sel.estado))}><Plus size={16} />Agregar {sel.municipio ? "municipio" : "estado"} {anio}</button>

@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceA
 import { ArrowRight, Check } from "lucide-react";
 import { api, type Resultado } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
+import { usePrep } from "@/components/Prep";
 import { Cargando } from "@/components/Kpi";
 import { FiltroTerritorio, NAC, nombreTerr, type Terr } from "@/components/FiltroTerritorio";
 import { CARGOS, cargo as cargoDe, type CargoId } from "@/lib/cargos";
@@ -31,6 +32,8 @@ const colorDe = (k: string, l: Lectura) => (l === "bloque" ? BLOQUES[k]?.color ?
 export default function Historico() {
   const cat = useCatalogo();
   const [cargoId, setCargoId] = useState<CargoId>("presidente");
+  const prepDe = usePrep();
+  const et = (a: number) => (prepDe(cargoId, a) ? `${a} · PREP` : String(a));
   const [terr, setTerr] = useState<Terr>(NAC);
   const [lectura, setLectura] = useState<Lectura>("candidatura");
   const [serie, setSerie] = useState<Resultado[] | null>(null);
@@ -110,9 +113,9 @@ export default function Historico() {
               <div><p className="label">{lugar}</p><h2 className="text-xl font-bold pt-1">Trayectoria de {c.nombre.toLowerCase()} · {desde}–{hasta}</h2></div>
               <div className="flex items-end gap-2">
                 <label className="space-y-1"><span className="label block">Desde</span>
-                  <select className="field !w-auto !py-1.5" value={desde} onChange={(e) => setDesde(Number(e.target.value))}>{anios.filter((a) => a <= hasta).map((a) => <option key={a}>{a}</option>)}</select></label>
+                  <select className="field !w-auto !py-1.5" value={desde} onChange={(e) => setDesde(Number(e.target.value))}>{anios.filter((a) => a <= hasta).map((a) => <option key={a} value={a}>{et(a)}</option>)}</select></label>
                 <label className="space-y-1"><span className="label block">Hasta</span>
-                  <select className="field !w-auto !py-1.5" value={hasta} onChange={(e) => setHasta(Number(e.target.value))}>{anios.filter((a) => a >= desde).map((a) => <option key={a}>{a}</option>)}</select></label>
+                  <select className="field !w-auto !py-1.5" value={hasta} onChange={(e) => setHasta(Number(e.target.value))}>{anios.filter((a) => a >= desde).map((a) => <option key={a} value={a}>{et(a)}</option>)}</select></label>
               </div>
             </div>
             <div className="flex flex-wrap gap-1.5" role="group" aria-label="Fuerzas visibles">
@@ -145,10 +148,10 @@ export default function Historico() {
               <div><p className="label">{lugar}</p><h2 className="text-xl font-bold pt-1">Elección contra elección</h2></div>
               <div className="flex items-end gap-2">
                 <label className="space-y-1"><span className="label block">Elección A</span>
-                  <select className="field !w-auto !py-1.5" value={aA} onChange={(e) => setAA(Number(e.target.value))}>{anios.map((a) => <option key={a}>{a}</option>)}</select></label>
+                  <select className="field !w-auto !py-1.5" value={aA} onChange={(e) => setAA(Number(e.target.value))}>{anios.map((a) => <option key={a} value={a}>{et(a)}</option>)}</select></label>
                 <ArrowRight size={18} className="mb-2.5" style={{ color: "var(--fg-mute)" }} />
                 <label className="space-y-1"><span className="label block">Elección B</span>
-                  <select className="field !w-auto !py-1.5" value={aB} onChange={(e) => setAB(Number(e.target.value))}>{anios.map((a) => <option key={a}>{a}</option>)}</select></label>
+                  <select className="field !w-auto !py-1.5" value={aB} onChange={(e) => setAB(Number(e.target.value))}>{anios.map((a) => <option key={a} value={a}>{et(a)}</option>)}</select></label>
               </div>
             </div>
             {rA && rB && comp && (

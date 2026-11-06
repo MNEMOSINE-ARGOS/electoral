@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
+import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
 import { Cargando, Confianza } from "@/components/Kpi";
 import { BLOQUES, ENFOQUES, nombreCandidatura, porBloque, porCandidatura, type Clase } from "@/lib/analisis";
 import { CeldaClase, ResumenClases, useEnfoque } from "@/components/Enfoque";
@@ -77,7 +78,8 @@ export default function Distritos() {
       </header>
       <section className="material p-4 space-y-3">
         <div className="flex flex-wrap gap-2">{CARGOS.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => { setEleccion(t); setAnio(null); }}>{nombreEleccion[t]}{t === "presidente" ? " (por distrito)" : ""}</button>)}</div>
-        <div className="flex flex-wrap gap-2">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}</button>)}</div>
+        <div className="flex flex-wrap gap-2">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
+        <AvisoSiPrep eleccion={eleccion} anio={anio} />
         <label className="space-y-1 block max-w-xs"><span className="label">Estado</span>
           <select className="field" value={estado} onChange={(e) => setEstado(Number(e.target.value))}><option value={0}>{local ? "Elige un estado" : "Todos"}</option>{estados.map((e) => <option key={e.id_estado} value={e.id_estado}>{e.nombre_corto}</option>)}</select></label>
         {local && !estado && <p className="text-sm" style={{ color: "var(--warn)" }}>Los distritos locales son de cada estado y los años de elección varían por estado: elige un estado.</p>}

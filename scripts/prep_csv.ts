@@ -56,10 +56,10 @@ if (resumen.TOTAL_VOTOS_C_CS && sumaTodas !== Number(resumen.TOTAL_VOTOS_C_CS)) 
   console.error(`La suma de actas contabilizadas (${sumaTodas}) no coincide con TOTAL_VOTOS_C_CS del encabezado (${resumen.TOTAL_VOTOS_C_CS}).`); process.exit(1);
 }
 
-type Acum = { vt: number; ln: number; actas: number; p: Record<string, number> };
-const nuevo = (): Acum => ({ vt: 0, ln: 0, actas: 0, p: Object.fromEntries(coaliciones.map((c) => [c, 0])) });
+type Acum = { vt: number; ln: number; actas: number; nulos: number; nr: number; p: Record<string, number> };
+const nuevo = (): Acum => ({ vt: 0, ln: 0, actas: 0, nulos: 0, nr: 0, p: Object.fromEntries(coaliciones.map((c) => [c, 0])) });
 const sumar = (a: Acum, r: Record<string, string>) => {
-  a.vt += num(r.TOTAL_VOTOS_CALCULADO); a.ln += num(r.LISTA_NOMINAL); a.actas++;
+  a.vt += num(r.TOTAL_VOTOS_CALCULADO); a.ln += num(r.LISTA_NOMINAL); a.actas++; a.nulos += num(r.NULOS); a.nr += num(r.NO_REGISTRADAS);
   for (const c of cols) { const v = num(r[c]); if (v) a.p[sigla(c)] = (a.p[sigla(c)] ?? 0) + v; }
 };
 
@@ -95,7 +95,7 @@ if (args[1]) {
   }
 }
 
-const filas = (m: Map<number, Acum>, extra?: (id: number) => object) => [...m].sort((a, b) => a[0] - b[0]).map(([id, a]) => ({ id, vt: a.vt, ln: a.ln, actas: a.actas, p: a.p, ...extra?.(id) }));
+const filas = (m: Map<number, Acum>, extra?: (id: number) => object) => [...m].sort((a, b) => a[0] - b[0]).map(([id, a]) => ({ id, vt: a.vt, ln: a.ln, actas: a.actas, nulos: a.nulos, nr: a.nr, p: a.p, ...extra?.(id) }));
 const salida = {
   fuente: "prep", eleccion, anio, estado, titulo, corte,
   resumen: {

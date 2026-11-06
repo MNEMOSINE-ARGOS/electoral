@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
+import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
 import { Territorio, type Sel } from "@/components/Territorio";
 import { Buscador } from "@/components/Buscador";
 import { EstrategiaSecciones } from "@/components/EstrategiaSecciones";
@@ -105,7 +106,8 @@ export default function Secciones() {
       </header>
       <section className="material p-4 space-y-3">
         <div className="flex flex-wrap gap-2">{CARGOS.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => { setEleccion(t); setAnio(null); if (t.startsWith("diputados") === false) setModo("municipio"); }}>{nombreEleccion[t] ?? t}</button>)}</div>
-        <div className="flex flex-wrap gap-2">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}</button>)}</div>
+        <div className="flex flex-wrap gap-2">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
+        <AvisoSiPrep eleccion={eleccion} anio={anio} />
         <div className="flex flex-wrap gap-2" role="group" aria-label="Demarcación">
           <button className="chip" aria-pressed={modo === "municipio"} onClick={() => setModo("municipio")}>Por municipio</button>
           {(eleccion === "diputados_federales" || eleccion === "presidente" || local) && <button className="chip" aria-pressed={modo === "distrito"} onClick={() => setModo("distrito")}>Por distrito {local ? "local" : "federal"}</button>}

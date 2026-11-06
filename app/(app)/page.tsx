@@ -8,6 +8,7 @@ import { SeccionesInline } from "@/components/SeccionesInline";
 import { BotonLimpiar } from "@/components/FiltroTerritorio";
 import { api, type Resultado } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
+import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
 import { Cargando, Confianza } from "@/components/Kpi";
 import { Barra, Waffle } from "@/components/Waffle";
 import { CARGOS, cargo as cargoDe, type CargoId } from "@/lib/cargos";
@@ -202,8 +203,9 @@ export default function ResultadosPorCargo() {
       <section className="material p-4 md:p-5 space-y-4 relative z-10">
         <div className="flex flex-wrap items-center gap-2">
           <span className="label mr-1">Año</span>
-          {anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}</button>)}
+          {anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={cargoId} anio={a} /></button>)}
         </div>
+        <AvisoSiPrep eleccion={cargoId} anio={anio} />
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <p className="label flex items-center gap-1.5"><MapPin size={13} /> Territorio</p>
