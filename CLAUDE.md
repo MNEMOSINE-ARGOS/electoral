@@ -87,7 +87,8 @@ scripts/sectores_geojson.ts  GeoJSON de sectores → data/sectores/<clave_inegi>
                          de la sección de la que salieron. Hoy: Torreón, 10 sectores, 446 secciones
 scripts/prep_csv.ts      CSV del PREP (por acta) + CSV de candidaturas → data/prep/<estado>_<eleccion>_<anio>.json; se registra en lib/prep.ts
 data/prep/            PREP procesados (hoy: Coahuila, diputaciones locales 2026). lib/prep.ts los sirve a /api/estados, /api/mapa y /api/catalogo
-public/geo/           estados.geojson (nacional); 5/ = Coahuila: entidad, municipios, distritos_federales, distritos_locales, secciones
+public/geo/           estados.geojson (nacional); <id_estado>/ = las 32 entidades: entidad, municipios, distritos_federales, distritos_locales,
+                      secciones (~111 MB en total; el mapa descarga solo la entidad que se abre, hasta ~9 MB Veracruz)
 ```
 
 Patrón de las pantallas: `useEffect` → `api<T>(url)` (`lib/api.ts`) → `useMemo` para derivar. Los cálculos analíticos viven en `lib/` como **funciones puras** y se usan igual en servidor y cliente.
@@ -247,11 +248,16 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 
 ## 10. Limitaciones y pendientes
 
-- Polígonos de municipios, distritos y secciones **solo de Coahuila** (BGD del INE, la carpeta de origen no está en el repo). Para otra
-  entidad: `bun scripts/geo_entidad.ts "<carpeta con SECCION.shp…>"`. El script reproyecta (UTM → lon/lat), simplifica, traduce el
-  municipio IFE → INEGI por nombre (se detiene si uno no coincide) y calcula desde qué año valen los distritos (≥ 98% de secciones en
-  el mismo distrito): en Coahuila, federales desde 2024 y locales desde 2023; antes no se dibujan. La cartografía es la vigente: las
-  secciones de años anteriores que ya no existen se cuentan como «sin polígono» (16 de 1,777 en 2024).
+- Polígonos de municipios, distritos y secciones de **las 32 entidades**. Coahuila salió de su BGD estatal; las otras 31, del Marco
+  Geográfico Seccional nacional del INE (corte enero 2025): `https://cartografia.ine.mx/mapoteca/MGS_CCL/SHAPEFILE.7z` (86 MB, se abre
+  con 7-Zip; no está en el repo). Para rehacer: `bun scripts/geo_entidad.ts "<carpeta con SECCION.shp…>" [--entidad 1,2] [--reemplazar]`
+  (sin opciones respeta las entidades que ya existen). El script reproyecta (UTM o Lambert → lon/lat), simplifica, traduce el municipio
+  IFE → INEGI por nombre único y, si no coincide, por secciones (≥ 90% de las secciones del municipio IFE en un mismo municipio INEGI
+  según `sec_resumen`; reporta cada caso; si no, no escribe la entidad). Hoy 47 municipios salieron por secciones, todos con 100% de
+  coincidencia (p. ej. «GRAL. ESCOBEDO» = General Escobedo; los dos «San Juan Mixtepec» de Oaxaca). También calcula desde qué año valen
+  los distritos (≥ 98% de secciones en el mismo distrito); antes no se dibujan. Veracruz no tiene año vigente para los distritos locales
+  (la capa local no se dibuja). La cartografía es la vigente: las secciones que ya no existen se cuentan como «sin polígono» (presidencia
+  2024: 150 de 70,464 en el país; 16 de 1,777 en Coahuila).
 - Lista nominal con edad solo en 8 cortes (2021-2026); sin edad antes de 2021; sin lista por sección antes de 2017.
 - Sin resultados posteriores al Tribunal Electoral (2018, 2021, 2024).
 - Locales por sección solo desde 2015 (alcaldes desde 1994, con salvedades de calidad).

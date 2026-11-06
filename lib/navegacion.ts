@@ -36,9 +36,9 @@ export const GRUPOS: { titulo: string; items: Pantalla[] }[] = [
   { titulo: "Territorio", items: [
     { href: "/estados", label: "Mapa nacional", icon: Map, color: "#0E71AF", enfoque: true,
       resumen: "El país de un vistazo: quién ganó, qué tan reñido, cuánto se votó y dónde pesa cada partido.",
-      preguntas: ["¿Dónde ganó cada fuerza?", "¿Qué entidades fueron más reñidas?", "¿Dónde está al alcance mi partido?", "¿Cómo se ve Coahuila por sección?"],
+      preguntas: ["¿Dónde ganó cada fuerza?", "¿Qué entidades fueron más reñidas?", "¿Dónde está al alcance mi partido?", "¿Cómo se ve mi estado por sección?"],
       contiene: ["Mapa o mosaico por entidad, con leyenda que ubica cada categoría", "Frases con lo que dice el mapa y entidades ordenadas por margen",
-        "Mapa por municipio, distrito y sección de las entidades con cartografía del INE (Coahuila)"] },
+        "Mapa por municipio, distrito federal, distrito local y sección de las 32 entidades (cartografía del INE)"] },
     { href: "/municipios", label: "Comparar territorios", icon: GitCompareArrows, color: "#3D4558",
       resumen: "Pon territorios del mismo tipo lado a lado.",
       preguntas: ["¿En qué municipio se votó más?", "¿Cómo se comparan dos municipios en la misma elección?"],
