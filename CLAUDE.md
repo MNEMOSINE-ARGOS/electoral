@@ -37,6 +37,9 @@ bun run build
 
 ```
 app/(app)/            pantallas (cliente)
+  inicio/             portada tras el login: cifras y gráficas de cobertura (API inicio, caché 1 h), cómo se recorre, el enfoque con su
+                      selector, índice de pantallas (número, resumen, vista previa y cifra; preguntas plegadas), conceptos y datos.
+                      Cifras de arriba con conteo animado (components/Contador.tsx)
   page.tsx            «Resultados por cargo»: cargo → año → territorio (entidad, distrito, municipio, sección), unidades ganadas,
                       competitividad, serie y piso/techo
   historico/          evolución de un cargo en un territorio y elección A vs B
@@ -50,7 +53,8 @@ app/(app)/            pantallas (cliente)
   layout.tsx          barra superior (selector de enfoque, tema, cuenta) y barra lateral
 app/api/              rutas de datos (route handlers) y auth/
 components/           Buscador (autocompletado), Territorio, Piramide, PisoTecho, TendenciaSeccion, EdadSeccion,
-                      Enfoque (contexto + selector + CeldaClase), EstrategiaSecciones, PerfilParticipacion, Waffle, Kpi…
+                      Enfoque (contexto + selector + CeldaClase), EstrategiaSecciones, PerfilParticipacion, Waffle, Kpi,
+                      Plegable (detalle un nivel abajo), MiniGraficas (SVG; colores --serie-fed/--serie-loc validados para daltonismo)…
 lib/
   analisis.ts         lecturas: porCandidatura, porBloque, familia, indicadores, pedersen, competitividad, ENFOQUES, claseEnfoque
   tendencia.ts        tendencia de una sección frente al país y su estado
@@ -59,6 +63,7 @@ lib/
   db.ts               pool de pg (q<T>()) y tabla de usuarios
   auth.ts             cookie firmada (Web Crypto)        vigencia.ts  usuario activo + rol vigente (caché 30 s)
   password.ts         bcrypt                              superusuario.ts  guardia soloSuper()
+  navegacion.ts       pantallas de la app (menú lateral y portada): resumen, preguntas que responde, qué contiene, si usa enfoque
   partidos.ts         colores y nombres                   cargos.ts    los 6 cargos y su unidad de elección
 proxy.ts              sesión obligatoria; /usuarios solo super (Next 16: «proxy» reemplaza a middleware y corre en Node)
 scripts/crear_superusuarios.ts
@@ -143,11 +148,12 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
    - Empates exactos de primera fuerza: gana el nombre de bloque menor.
    - **Invariante**: `lib/tendencia.ts` debe dar exactamente lo mismo que el script del pipeline que llena `app_sec_tendencia` (comprobado: 154 secciones al azar, 16 indicadores idénticos). Si cambias la lógica en uno, cámbiala en el otro y vuelve a comparar.
 5. **Piso y techo** (`lib/pisoTecho.ts`).
-   - Menor y mayor % de votos a candidaturas en las elecciones ordinarias de los **últimos 10 años** contados desde hoy (opción 20 años o todo), del cargo en ese territorio.
+   - **Piso y techo = menor y mayor número ABSOLUTO de votos** en las elecciones ordinarias del periodo, del cargo en ese territorio. Para comparar partidos y unidades se muestran el **% de los votantes** (votos emitidos) y el **% de la lista nominal** de esas elecciones.
+   - **Periodo**: 10 años (opción 20 o todo) contados hacia atrás **desde la última elección con datos de ese cargo en ese territorio**, no desde hoy (inclusive: diputaciones federales = 2015, 2018, 2021, 2024; diputaciones locales de Coahuila = 2017, 2020, 2023). En el cruce por cargos cada cargo usa su propia última elección.
    - **Partidos: solo sus votos propios** (su recuadro). **Nunca** se les suman los de su coalición; si fueron en coalición se marca el año (`coalicion_anios`).
    - **Coaliciones: filas aparte**, una por combinación exacta de partidos (clave con componentes ordenados), con los votos de toda la alianza, solo en las elecciones en que compitió esa combinación. Por eso casi siempre tienen una sola elección.
    - Ausente o con 0 votos no cuenta como piso 0.
-   - **Votos posibles hoy** = % de la lista nominal mínimo y máximo × lista nominal más reciente.
+   - **Votos posibles hoy**: votantes esperados = lista nominal más reciente × participación histórica del cargo en el territorio (mínima, media, máxima); bajo = menor % de los votantes × votantes mínimos, central = medio × medios, alto = mayor × máximos. Igual para cada coalición. El bloque «Votos posibles» responde en texto para el partido de enfoque (o el primero) y sus coaliciones.
 6. **Estrategia por sección** (`EstrategiaSecciones`): bastión, ganada reñida, conquista nueva, perdida, objetivo al alcance o adversa (umbral de 10 puntos), con los votos que faltan para ganar y el potencial por participación. Sigue al partido de enfoque.
 
 ---
@@ -175,7 +181,7 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 
 ## 7. Diseño
 
-- Marca **Arg.Os · Electoral** (`components/ArgosLogo.tsx`). Neutros pizarra + rosa `#D81B60` y azul `#0E71AF`. **Sin verdes fuera del logotipo.**
+- Marca **Arg.Os · Electoral** (`components/ArgosLogo.tsx`). Neutros pizarra + rosa `#D81B60` y azul `#0E71AF`. **Sin verdes fuera del logotipo**.
 - Colores de partido en `lib/partidos.ts`; de bloque en `BLOQUES`.
 - Modo claro y oscuro: usa las variables CSS (`--fg`, `--fg-mute`, `--line`, `--card-solid`, `--azul`, `--rose`…), no colores fijos de texto.
 - Clases utilitarias propias: `material`, `chip`, `seg`, `btn`, `field`, `t` (tablas), `label`.
@@ -193,7 +199,7 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 | Mismo caso con enfoque | Morena 256 ganados, PAN 42, MC 1 (bastión + ventaja + competitiva + reñida gana) |
 | Distritos federales | suman exactamente el total del estado en 2018 y 2024 |
 | Tendencia nacional | 72,895 secciones: 15,506 sigue · 40,836 parcial · 13,623 independiente · 2,930 sin datos; correlación mediana 0.57 con el país y 0.72 con el estado |
-| Sección 50338 (Coahuila) | tendencia «parcial»; piso y techo de presidencia por candidatura: Morena 53.4%-55.2% |
+| Sección 50338 (Coahuila) | tendencia «parcial»; piso y techo de presidencia (votos propios): Morena 358 (2018) a 500 (2024), votos posibles 466-500; diputaciones federales 2015-2024: PRI 236 a 456 |
 | Judicial 2025 | votos por candidatura en `jud_candidatura` = 486,063,196 |
 
 ---

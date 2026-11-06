@@ -13,7 +13,7 @@ export default function Login() {
     e.preventDefault();
     setCargando(true); setError("");
     const r = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuario, password }) });
-    if (r.ok) { location.href = "/"; return; }
+    if (r.ok) { location.href = "/inicio"; return; }
     setError((await r.json().catch(() => ({})))?.error || "No se pudo iniciar sesión");
     setCargando(false);
   }

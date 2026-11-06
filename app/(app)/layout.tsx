@@ -2,27 +2,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Vote, LineChart as LineIcon, Map as MapIcon, GitCompareArrows, Layers, Grid3x3, Users, Scale, UserCog, Moon, Sun, LogOut, PanelLeft } from "lucide-react";
+import { UserCog, Moon, Sun, LogOut, PanelLeft } from "lucide-react";
+import { GRUPOS, INICIO, type Pantalla } from "@/lib/navegacion";
 import { ArgosLogo } from "@/components/ArgosLogo";
 import { MenuUsuario } from "@/components/MenuUsuario";
 import { EnfoqueProvider, SelectorEnfoque } from "@/components/Enfoque";
 
 type Yo = { usuario: string; nombre: string; rol: "super" | "usuario" };
-type Item = { href: string; label: string; icon: typeof Vote; color: string };
-const GRUPOS: { titulo: string; items: Item[] }[] = [
-  { titulo: "Resultados", items: [
-    { href: "/", label: "Resultados por cargo", icon: Vote, color: "#F0627A" },
-    { href: "/secciones", label: "Lectura por sección", icon: Grid3x3, color: "#D97706" },
-    { href: "/electorado", label: "Electorado", icon: Users, color: "#3D4558" },
-    { href: "/historico", label: "Evolución y comparación", icon: LineIcon, color: "#7c3aed" },
-  ] },
-  { titulo: "Territorio", items: [
-    { href: "/estados", label: "Mapa nacional", icon: MapIcon, color: "#0E71AF" },
-    { href: "/municipios", label: "Comparar territorios", icon: GitCompareArrows, color: "#3D4558" },
-    { href: "/distritos", label: "Distritos y circunscripciones", icon: Layers, color: "#0E71AF" },
-  ] },
-  { titulo: "Poder Judicial", items: [{ href: "/judicial", label: "Elección judicial 2025", icon: Scale, color: "#7c3aed" }] },
-];
+const NAV = [{ titulo: "Guía", items: [INICIO] }, ...GRUPOS];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -46,7 +33,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setOscuro(!oscuro);
   }
   async function salir() { await fetch("/api/auth/logout", { method: "POST" }); location.href = "/login"; }
-  const grupos = yo?.rol === "super" ? [...GRUPOS, { titulo: "Administración", items: [{ href: "/usuarios", label: "Usuarios", icon: UserCog, color: "#64748b" }] }] : GRUPOS;
+  const admin: Pantalla = { href: "/usuarios", label: "Usuarios", icon: UserCog, color: "#64748b", resumen: "", preguntas: [], contiene: [] };
+  const grupos = yo?.rol === "super" ? [...NAV, { titulo: "Administración", items: [admin] }] : NAV;
   const todos = grupos.flatMap((g) => g.items);
   const activo = (h: string) => (h === "/" ? path === "/" : path.startsWith(h));
   const actual = todos.find((i) => activo(i.href));
@@ -59,7 +47,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex h-14 items-center justify-between gap-3 px-3 md:px-5">
           <div className="flex items-center gap-2 min-w-0">
             <button className={`${ghost} hidden md:grid`} onClick={alternar} aria-label={lateral ? "Contraer la barra lateral" : "Expandir la barra lateral"} style={{ color: "var(--fg-mute)" }}><PanelLeft size={18} /></button>
-            <Link href="/" className="rounded-lg px-1 py-1 active:scale-[.98] transition-transform"><ArgosLogo alto={26} /></Link>
+            <Link href="/inicio" aria-label="Inicio" className="rounded-lg px-1 py-1 active:scale-[.98] transition-transform"><ArgosLogo alto={26} /></Link>
           </div>
           <div className="flex items-center gap-1.5 min-w-0">
             <div className="hidden sm:block"><SelectorEnfoque /></div>
