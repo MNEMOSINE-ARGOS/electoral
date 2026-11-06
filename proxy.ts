@@ -7,7 +7,7 @@ import { COOKIE_SESION } from "./lib/config";
 // Todo requiere sesión salvo el login. La cookie firmada se confirma contra la base: el usuario debe existir y estar ACTIVO
 // (caché de 30 s). La administración de usuarios solo es para superusuarios (cada API lo vuelve a comprobar).
 // Proxy corre en Node (Next 16), así que puede consultar PostgreSQL.
-const PUBLICAS = ["/login", "/api/auth/login"];
+const PUBLICAS = ["/login", "/api/auth/login", "/api/salud"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

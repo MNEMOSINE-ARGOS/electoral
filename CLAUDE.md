@@ -28,7 +28,8 @@ bun run build
 - `bun run build` **debe compilar sin variables de entorno**: las plataformas las dan solo al ejecutar. Con `cacheComponents`, Next pre-renderiza al compilar todo GET que no lea la petición; una ruta que consulte la base sin leer `req` necesita `await connection()` (de `next/server`), como `app/api/catalogo`. Comprobación: compilar con `.env` y `.env.local` apartados.
 - `DATABASE_URL` y `AUTH_SECRET` se definen como variables de **ejecución**.
 - La cookie lleva `Secure` solo si la petición llegó por HTTPS (`x-forwarded-proto`): por `http` el login funciona igual.
-- Si el login responde 503 «No se pudo consultar la base de usuarios», el contenedor no llega a PostgreSQL: revisa el firewall o `pg_hba.conf` del servidor de la base, o usa el host interno si la base corre en el mismo Coolify. Para probar APIs desde la terminal hace falta iniciar sesión (`POST /api/auth/login`) y reenviar la cookie `electoral_sesion`. Usa un usuario de prueba creado desde `/usuarios` y bórralo al terminar; no pidas ni guardes contraseñas reales.
+- **Diagnóstico: `GET /api/salud`** (pública, sin secretos). Dice si están `DATABASE_URL` y `AUTH_SECRET`, si conecta a PostgreSQL (host, ms, código de error y pista) y si existen las tablas de la app. El login también dice qué variable falta, en lugar de un error genérico.
+- Si `/api/salud` muestra un error de conexión (ETIMEDOUT, ECONNREFUSED, 28000…), el contenedor no llega a PostgreSQL: revisa el firewall o `pg_hba.conf` del servidor de la base, o usa el host interno si la base corre en el mismo Coolify. Para probar APIs desde la terminal hace falta iniciar sesión (`POST /api/auth/login`) y reenviar la cookie `electoral_sesion`. Usa un usuario de prueba creado desde `/usuarios` y bórralo al terminar; no pidas ni guardes contraseñas reales.
 
 ---
 

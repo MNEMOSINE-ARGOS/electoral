@@ -10,6 +10,9 @@ export async function POST(req: Request) {
   const u = (usuario || "").trim().toLowerCase();
   const p = password || "";
   if (!u || !p) return NextResponse.json({ error: "Escribe usuario y contraseña" }, { status: 400 });
+  // Errores de configuración del servidor: se dicen tal cual (no son «usuario incorrecto» ni «sin base»). Diagnóstico: /api/salud
+  if (!process.env.AUTH_SECRET) return NextResponse.json({ error: "Falta la variable AUTH_SECRET en el servidor. Revisa /api/salud." }, { status: 500 });
+  if (!process.env.DATABASE_URL) return NextResponse.json({ error: "Falta la variable DATABASE_URL en el servidor. Revisa /api/salud." }, { status: 500 });
   try {
     await asegurarUsuarios();
     const [fila] = await q<{ usuario: string; nombre: string; rol: "super" | "usuario"; password_hash: string; activo: boolean }>(
@@ -25,6 +28,6 @@ export async function POST(req: Request) {
     res.headers.append("Set-Cookie", cookieSesion(token, false, req));
     return res;
   } catch {
-    return NextResponse.json({ error: "No se pudo consultar la base de usuarios" }, { status: 503 });
+    return NextResponse.json({ error: "No se pudo conectar con la base de datos. Revisa /api/salud para ver la causa." }, { status: 503 });
   }
 }
