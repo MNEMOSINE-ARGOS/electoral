@@ -37,8 +37,8 @@ bun run build
 
 ```
 app/(app)/            pantallas (cliente)
-  inicio/             portada tras el login: cifras y gráficas de cobertura (API inicio, caché 1 h), cómo se recorre, el enfoque con su
-                      selector, índice de pantallas (número, resumen, vista previa y cifra; preguntas plegadas), conceptos y datos.
+  inicio/             portada tras el login: cifras, el enfoque con su selector (justo bajo las cifras, para ver el cambio al elegir),
+                      gráficas de cobertura (API inicio, caché 1 h), cómo se recorre, índice de pantallas (número, resumen, vista previa y cifra; preguntas plegadas), conceptos y datos.
                       Cifras de arriba con conteo animado (components/Contador.tsx)
   page.tsx            «Resultados por cargo»: cargo → año → territorio (entidad, distrito, municipio, sección), unidades ganadas,
                       competitividad, serie y piso/techo

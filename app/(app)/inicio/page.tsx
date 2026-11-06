@@ -14,8 +14,8 @@ import { BarrasAnio, BarrasH, Sparkline } from "@/components/MiniGraficas";
 import { Contador } from "@/components/Contador";
 import { VotoAnimado } from "@/components/VotoAnimado";
 
-// Portada después de iniciar sesión: qué cubre la base (cifras y gráficas reales de /api/inicio), cómo se recorre, el enfoque
-// con su selector y una tarjeta por pantalla. La lista de pantallas sale de lib/navegacion.ts (la misma que la barra lateral).
+// Portada después de iniciar sesión: el enfoque con su selector (arriba, para que se vea el cambio al elegir), qué cubre la base
+// (cifras y gráficas reales de /api/inicio), cómo se recorre y una tarjeta por pantalla. La lista de pantallas sale de lib/navegacion.ts (la misma que la barra lateral).
 
 type Stats = {
   anios: { min: number; max: number; n: number };
@@ -69,6 +69,8 @@ export default function Inicio() {
         </dl>
       </section>
 
+      <SeccionEnfoque />
+
       {/* Cobertura */}
       <section aria-labelledby="cobertura" className="space-y-4">
         <div className="space-y-1">
@@ -101,13 +103,11 @@ export default function Inicio() {
       <section aria-labelledby="pasos" className="space-y-4">
         <h2 id="pasos" className="inicio-h2">Cómo se recorre</h2>
         <ol className="grid gap-3 md:grid-cols-3">
-          <Paso n={1} icon={Crosshair} titulo="Elige desde dónde miras" href="#enfoque" texto="General, o un partido." />
+          <Paso n={1} icon={Crosshair} titulo="Elige tu perspectiva" href="#enfoque" texto="General, o un partido." />
           <Paso n={2} icon={MousePointerClick} titulo="Elige cargo, año y territorio" href="/" texto="Del país a la sección." />
           <Paso n={3} icon={Search} titulo="Baja a la sección" href="/secciones" texto="Su historia, su gente y su potencial." />
         </ol>
       </section>
-
-      <SeccionEnfoque />
 
       {/* Pantallas */}
       <section aria-labelledby="mapa" className="space-y-6">
@@ -242,7 +242,7 @@ function SeccionEnfoque() {
     <section id="enfoque" aria-labelledby="enfoque-t" className="inicio-enfoque scroll-mt-20" style={{ ["--c" as string]: enf.color }}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1.5 max-w-xl">
-          <h2 id="enfoque-t" className="inicio-h2">¿Desde dónde miras?<Ayuda clave="enfoque" /></h2>
+          <h2 id="enfoque-t" className="inicio-h2">¿Desde qué perspectiva abordas tu análisis?<Ayuda clave="enfoque" /></h2>
           <p className="text-sm" style={{ color: "var(--fg-soft)" }}>Elige un partido y cada unidad se clasifica desde él: si gana, por cuánto; si pierde, qué tan lejos quedó.</p>
         </div>
         <div className="inicio-selector" role="radiogroup" aria-label="Partido de enfoque">
