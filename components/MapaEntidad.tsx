@@ -24,14 +24,19 @@ const UNIDAD: Record<Nivel, [string, string]> = { municipio: ["municipio", "muni
 const PROP_SECCION: Record<Foco["tipo"], string> = { municipio: "municipio", distrito: "df", distrito_local: "dl" };
 const FEDERALES = new Set(["presidente", "senado", "diputados_federales"]);
 /** Límites que se pueden dibujar encima de las secciones de un municipio o distrito (de la misma cartografía del INE) */
-type Limite = "df" | "dl" | "municipio";
-const LIMITES: Record<Limite, { t: string; corto: string; archivo: string }> = {
+type Limite = "df" | "dl" | "municipio" | "sector";
+const LIMITES: Record<Limite, { t: string; corto: string; archivo: string | null }> = {
   df: { t: "Distritos federales", corto: "DF", archivo: "distritos_federales" },
   dl: { t: "Distritos locales", corto: "DL", archivo: "distritos_locales" },
   municipio: { t: "Municipios", corto: "", archivo: "municipios" },
+  // Organización propia (app_sector_seccion, /api/sectores): no hay polígono del sector, se dibuja con el borde de sus secciones
+  sector: { t: "Sectores", corto: "Sector", archivo: null },
 };
 const LIMITES_DE: Record<Foco["tipo"], Limite[]> = { municipio: ["df", "dl"], distrito: ["dl", "municipio"], distrito_local: ["df", "municipio"] };
 type InfoSeccion = { n: string; municipio: number; df: number; dl: number };
+type Sector = { sector: string; coordinador: string; secciones: number };
+/** Borde de cada sector: tonos distinguibles entre sí, sin verdes (regla de diseño) */
+const COLOR_SECTOR = ["#0E71AF", "#D81B60", "#B45309", "#7C3AED", "#0891B2", "#BE185D", "#475569", "#EA580C", "#4338CA", "#92400E", "#9333EA", "#0369A1"];
 
 /** Ids de las unidades que comparten la categoría de la leyenda bajo el cursor. */
 function useResaltados(resaltar: string | null, unidades: UnidadMapa[], metrica: Metrica, partido: string, items: { k: string; color: string }[]) {
@@ -181,8 +186,19 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
   const [sel, setSel] = useState<number | null>(null);
   const [resaltar, setResaltar] = useState<string | null>(null);
   const [orden, setOrden] = useState<"margen" | "seccion" | "participacion">("margen");
-  const opciones = LIMITES_DE[foco.tipo];
-  const [limite, setLimite] = useState<Limite | null>(opciones[0]);
+  const [sectores, setSectores] = useState<Sector[]>([]);
+  const [sectorDe, setSectorDe] = useState<Record<number, string>>({});
+  useEffect(() => {
+    setSectores([]); setSectorDe({});
+    if (foco.tipo !== "municipio") return;
+    api<{ secciones: Record<number, string>; sectores: Sector[] }>(`/api/sectores?municipio=${foco.id}`)
+      .then((d) => { setSectores(d.sectores); setSectorDe(d.secciones); if (d.sectores.length) setLimite("sector"); }).catch(() => {});
+  }, [foco.tipo, foco.id]);
+  const opciones: Limite[] = [...LIMITES_DE[foco.tipo], ...(sectores.length ? ["sector" as const] : [])];
+  const [limite, setLimite] = useState<Limite | null>(LIMITES_DE[foco.tipo][0]);
+  const idxSector = useMemo(() => new Map(sectores.map((x, i) => [x.sector, i])), [sectores]);
+  /** Grupo de una sección para el límite elegido (los sectores vienen de la base; distritos y municipios, de la cartografía) */
+  const grupoDe = (l: Limite, id: number): number | undefined => l === "sector" ? idxSector.get(sectorDe[id]) : info[id]?.[l];
   const [grupoHover, setGrupoHover] = useState<number | null>(null);
   const prop = PROP_SECCION[foco.tipo];
   const url = `/geo/${ent.id}/secciones.geojson`;
@@ -203,12 +219,17 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
   }, [ent.id]);
   const numeros = useMemo(() => Object.fromEntries(Object.entries(info).map(([k, v]) => [k, v.n])), [info]);
   /** Nombre de un grupo del límite elegido (DF 6, DL 9, Torreón) */
-  const nombreGrupo = (l: Limite, v: number) => l === "municipio" ? (nomMun[v] ?? String(v)) : `${LIMITES[l].corto} ${v % 100}`;
+  const nombreGrupo = (l: Limite, v: number) => l === "municipio" ? (nomMun[v] ?? String(v)) : l === "sector" ? `Sector ${sectores[v]?.sector ?? "?"}` : `${LIMITES[l].corto} ${v % 100}`;
   const grupos = useMemo(() => {
     if (!limite) return null;
+    if (limite === "sector") {
+      const asignacion = Object.fromEntries(Object.keys(info).map((k) => [k, grupoDe("sector", Number(k))]).filter(([, v]) => v !== undefined)) as Record<number, number>;
+      return { prop: "sector", asignacion, etiquetas: Object.fromEntries(sectores.map((x, i) => [i, x.sector])),
+        colores: Object.fromEntries(sectores.map((_, i) => [i, COLOR_SECTOR[i % COLOR_SECTOR.length]])) };
+    }
     const vs = [...new Set(Object.values(info).map((x) => x[limite]))];
     return { prop: limite, etiquetas: Object.fromEntries(vs.map((v) => [v, nombreGrupo(limite, v)])) };
-  }, [limite, info, nomMun]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [limite, info, nomMun, sectores, sectorDe]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtro = useMemo(() => ({ prop, valor: foco.id }), [prop, foco.id]);
   const porId = useMemo(() => new Map((datos ?? []).map((u) => [u.id, u])), [datos]);
@@ -217,20 +238,20 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
   const ley = useMemo(() => leyenda(enMapa, metrica, partido, enfoque), [enMapa, metrica, partido, enfoque]);
   const idsLeyenda = useResaltados(resaltar, enMapa, metrica, partido, ley.items);
   const idsResaltados = useMemo(() => grupoHover !== null && limite
-    ? new Set(Object.entries(info).filter(([, x]) => x[limite] === grupoHover).map(([k]) => Number(k))) : idsLeyenda, [grupoHover, limite, info, idsLeyenda]);
+    ? new Set(Object.keys(info).map(Number).filter((id) => grupoDe(limite, id) === grupoHover)) : idsLeyenda, [grupoHover, limite, info, idsLeyenda, sectorDe, idxSector]); // eslint-disable-line react-hooks/exhaustive-deps
   // Resumen por grupo (p. ej. cada distrito dentro del municipio): secciones, votos, participación y secciones ganadas por candidatura
   const porGrupo = useMemo(() => {
     if (!limite) return [];
     const m = new Map<number, { v: number; n: number; vt: number; ln: number; gan: Map<string, number> }>();
-    for (const u of enMapa) {
-      const v = info[u.id]?.[limite]; if (v === undefined) continue;
+    for (const u of limite === "sector" ? datos ?? [] : enMapa) {
+      const v = grupoDe(limite, u.id); if (v === undefined) continue;
       const g = m.get(v) ?? { v, n: 0, vt: 0, ln: 0, gan: new Map() };
       g.n++; g.vt += u.votos_totales ?? 0; g.ln += u.lista_nominal ?? 0;
       if (u.ganador) g.gan.set(u.ganador, (g.gan.get(u.ganador) ?? 0) + 1);
       m.set(v, g);
     }
     return [...m.values()].sort((a, b) => a.v - b.v);
-  }, [limite, enMapa, info]);
+  }, [limite, enMapa, info, datos, sectorDe, idxSector]); // eslint-disable-line react-hooks/exhaustive-deps
   const nPoligonos = Object.keys(numeros).length;
   const sinPoligono = (datos ?? []).length - enMapa.length;
   const sinDatos = nPoligonos - enMapa.length;
@@ -243,7 +264,8 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
   const s = sel !== null ? porId.get(sel) : undefined;
   const nombre = (id: number) => {
     const x = info[id];
-    const extra = x ? (foco.tipo === "municipio" ? [`DF ${x.df % 100}`, `DL ${x.dl % 100}`] : [nomMun[x.municipio], foco.tipo === "distrito" ? `DL ${x.dl % 100}` : `DF ${x.df % 100}`]).filter(Boolean).join(" · ") : "";
+    const sec = sectorDe[id] ? sectores[idxSector.get(sectorDe[id])!] : undefined;
+    const extra = x ? (foco.tipo === "municipio" ? [`DF ${x.df % 100}`, `DL ${x.dl % 100}`, sec ? `Sector ${sec.sector} (${sec.coordinador})` : ""] : [nomMun[x.municipio], foco.tipo === "distrito" ? `DL ${x.dl % 100}` : `DF ${x.df % 100}`]).filter(Boolean).join(" · ") : "";
     return `Sección ${x?.n ?? id % 10000}${extra ? ` · ${extra}` : ""}`;
   };
 
@@ -259,7 +281,7 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
             </div>
           </div>
           {datos === null ? <div className="skeleton w-full" style={{ aspectRatio: "800 / 560" }} /> : (
-            <MapaGeo key={`${foco.tipo}-${foco.id}`} url={url} filtro={filtro} grupos={grupos} contorno={limite ? `/geo/${ent.id}/${LIMITES[limite].archivo}.geojson` : null} colores={colores} seleccion={sel} onSelect={setSel} resaltar={idsResaltados}
+            <MapaGeo key={`${foco.tipo}-${foco.id}`} url={url} filtro={filtro} grupos={grupos} contorno={limite && LIMITES[limite].archivo ? `/geo/${ent.id}/${LIMITES[limite].archivo}.geojson` : null} colores={colores} seleccion={sel} onSelect={setSel} resaltar={idsResaltados}
               etiquetas={numeros} etiquetaMin={420}
               tooltip={(id) => <FichaUnidad nombre={nombre(id)} u={porId.get(id)} metrica={metrica} partido={partido} nota="Sin resultados de esta elección en esta sección" />} />
           )}
@@ -289,14 +311,15 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
           <p className="font-bold">{LIMITES[limite].t} dentro de {foco.tipo === "municipio" ? foco.nombre : "este distrito"} <span className="font-normal text-sm" style={{ color: "var(--fg-mute)" }}>· pasa el cursor por una fila para ubicarlo</span></p>
           <div className="overflow-auto">
             <table className="t">
-              <thead><tr><th>{limite === "municipio" ? "Municipio" : "Distrito"}</th><th>Secciones</th><th>Votos</th><th>Particip.</th><th>Secciones ganadas</th></tr></thead>
+              <thead><tr><th>{limite === "municipio" ? "Municipio" : limite === "sector" ? "Sector" : "Distrito"}</th>{limite === "sector" && <th>Coordinación</th>}<th>Secciones</th><th>Votos</th><th>Particip.</th><th>Secciones ganadas</th></tr></thead>
               <tbody>{porGrupo.map((g) => {
                 const gan = [...g.gan].sort((a, b) => b[1] - a[1]);
                 return (
                   <tr key={g.v} onPointerEnter={() => setGrupoHover(g.v)} onPointerLeave={() => setGrupoHover(null)} tabIndex={0}
                     onFocus={() => setGrupoHover(g.v)} onBlur={() => setGrupoHover(null)}
                     style={grupoHover === g.v ? { background: "color-mix(in srgb, var(--fg) 6%, transparent)" } : undefined}>
-                    <td className="font-semibold whitespace-nowrap">{nombreGrupo(limite, g.v)}</td>
+                    <td className="font-semibold whitespace-nowrap">{limite === "sector" && <span className="mapa-ley-c inline-block mr-1.5 align-middle" style={{ background: COLOR_SECTOR[g.v % COLOR_SECTOR.length] }} />}{nombreGrupo(limite, g.v)}</td>
+                    {limite === "sector" && <td>{sectores[g.v]?.coordinador}</td>}
                     <td className="num">{fmtN(g.n)}</td>
                     <td className="num">{fmtN(g.vt)}</td>
                     <td className="num">{pct(g.ln ? (100 * g.vt) / g.ln : null)}</td>
@@ -308,7 +331,8 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
               })}</tbody>
             </table>
           </div>
-          <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Solo la parte de cada {limite === "municipio" ? "municipio" : "distrito"} que cae {foco.tipo === "municipio" ? "en este municipio" : "en este distrito"}, según la cartografía vigente ({limite === "df" ? `distritación federal vigente desde ${ent.df_desde}` : limite === "dl" ? `distritación local vigente desde ${ent.dl_desde}` : "límites municipales del INE"}). Votos y participación suman las secciones con polígono: no es el resultado oficial del distrito completo.</p>
+          {limite === "sector" ? <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Sectores y coordinación: organización propia (no es una división del INE), cargada desde el archivo de secciones de Torreón 2024. Las secciones creadas después de 2024 heredan el sector de la sección de la que salieron; las de 2024 que ya no existen cuentan en su sector aunque no tengan polígono.</p> :
+          <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Solo la parte de cada {limite === "municipio" ? "municipio" : "distrito"} que cae {foco.tipo === "municipio" ? "en este municipio" : "en este distrito"}, según la cartografía vigente ({limite === "df" ? `distritación federal vigente desde ${ent.df_desde}` : limite === "dl" ? `distritación local vigente desde ${ent.dl_desde}` : "límites municipales del INE"}). Votos y participación suman las secciones con polígono: no es el resultado oficial del distrito completo.</p>}
         </div>
       )}
 
@@ -330,7 +354,7 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido }: {
                 return (
                   <tr key={u.id} className="cursor-pointer" onClick={() => setSel(u.id === sel ? null : u.id)} aria-selected={u.id === sel}
                     style={u.id === sel ? { background: "color-mix(in srgb, var(--accion) 10%, transparent)" } : undefined}>
-                    <td className="font-semibold num whitespace-nowrap">{u.id % 10000}{limite && info[u.id] && <span className="text-xs font-normal" style={{ color: "var(--fg-mute)" }}> · {nombreGrupo(limite, info[u.id][limite])}</span>}{numeros[u.id] === undefined && <span className="text-xs font-normal" style={{ color: "var(--fg-mute)" }} title="No existe en la cartografía vigente"> · sin polígono</span>}</td>
+                    <td className="font-semibold num whitespace-nowrap">{u.id % 10000}{limite && grupoDe(limite, u.id) !== undefined && <span className="text-xs font-normal" style={{ color: "var(--fg-mute)" }}> · {nombreGrupo(limite, grupoDe(limite, u.id)!)}</span>}{numeros[u.id] === undefined && <span className="text-xs font-normal" style={{ color: "var(--fg-mute)" }} title="No existe en la cartografía vigente"> · sin polígono</span>}</td>
                     <td><span className="mapa-ley-c inline-block mr-1 align-middle" style={{ background: u.ganador ? colorPartido(u.ganador) : undefined }} />{u.ganador ? nombreCandidatura(u.ganador) : "—"}</td>
                     <td className="num">{pct(u.p_ganador)}</td>
                     <td className="num">{m === null ? "—" : `${enfoque !== "general" && m > 0 ? "+" : ""}${m.toFixed(1)}`}</td>

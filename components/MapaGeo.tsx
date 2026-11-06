@@ -24,7 +24,9 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
   /** ids que se dibujan con borde marcado (p. ej. los del mismo ganador al pasar por la leyenda) */ resaltar?: Set<number> | null;
   /** límites dibujados encima (con «contorno») y su etiqueta, centrada en la parte de cada grupo que cae en el mapa:
    *  p. ej. los distritos dentro de un municipio. prop = propiedad de cada polígono base que dice a qué grupo pertenece. */
-  grupos?: { prop: string; etiquetas: Record<number, string> } | null;
+  /*  asignacion: grupo de cada polígono cuando no viene en sus propiedades (p. ej. sectores cargados aparte);
+   *  colores: si se da, cada polígono lleva un borde del color de su grupo (para grupos sin polígono propio). */
+  grupos?: { prop: string; etiquetas: Record<number, string>; asignacion?: Record<number, number>; colores?: Record<number, string> } | null;
   alto?: number; etiquetaMin?: number;
 }) {
   const [gj, setGj] = useState<GJ | null>(null);
@@ -63,7 +65,7 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
     if (!grupos) return [];
     const acc = new Map<number, [number, number, number]>();
     for (const r of rutas) {
-      const v = Number(r.p[grupos.prop]); if (!Number.isFinite(v) || !r.a) continue;
+      const v = grupos.asignacion ? grupos.asignacion[r.id] : Number(r.p[grupos.prop]); if (v === undefined || !Number.isFinite(v) || !r.a) continue;
       const a = acc.get(v) ?? [0, 0, 0]; a[0] += r.c[0] * r.a; a[1] += r.c[1] * r.a; a[2] += r.a; acc.set(v, a);
     }
     return [...acc].filter(([v]) => grupos.etiquetas[v]).map(([v, [x, y, a]]) => ({ v, x: x / a, y: y / a, t: grupos.etiquetas[v] }));
@@ -140,6 +142,8 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
             onKeyDown={(e) => { const id = idDe(e.target); if (id !== null && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onSelect?.(seleccion === id ? null : id); } }}>
             {capaBase}
           </g>
+          {grupos?.colores && rutas.map(({ id, d }) => { const v = grupos.asignacion?.[id]; const c = v === undefined ? undefined : grupos.colores![v];
+            return c ? <path key={`b${id}`} d={d} fill="none" stroke={c} strokeWidth={2.2} strokeOpacity={0.9} vectorEffect="non-scaling-stroke" strokeLinejoin="round" pointerEvents="none" /> : null; })}
           {rutasCont.map(({ id, d }) => grupos
             ? <path key={`c${id}`} d={d} className="mapa-geo-lim" vectorEffect="non-scaling-stroke" pointerEvents="none" />
             : <path key={`c${id}`} d={d} fill="none" stroke="var(--fg-soft)" strokeOpacity={0.55} strokeWidth={1.1} vectorEffect="non-scaling-stroke" pointerEvents="none" />)}
