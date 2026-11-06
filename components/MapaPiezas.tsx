@@ -2,14 +2,15 @@
 import { ETIQ_CLASE, nombreCandidatura } from "@/lib/analisis";
 import { colorPartido } from "@/lib/partidos";
 import { fmt, pct } from "@/lib/format";
-import { type ItemLeyenda, type UnidadMapa, type Metrica } from "@/lib/mapa";
+import { colorBivariado, type ItemLeyenda, type UnidadMapa, type Metrica, type Leyenda } from "@/lib/mapa";
 import { useEnfoque } from "@/components/Enfoque";
 
 /** Leyenda del mapa con cuántas unidades hay en cada categoría. Al pasar el cursor (o enfocar) por una, el mapa resalta esas unidades. */
-export function LeyendaMapa({ items, escala, unidad, onHover, titulo }: {
-  items: ItemLeyenda[]; escala?: { color: string; t: string; n: number }[]; unidad: [string, string]; onHover?: (k: string | null) => void; titulo?: string;
+export function LeyendaMapa({ items, escala, matriz, nota, unidad, onHover, titulo }: Leyenda & {
+  unidad: [string, string]; onHover?: (k: string | null) => void; titulo?: string;
 }) {
   const total = items.reduce((a, b) => a + b.n, 0);
+  if (matriz) return <LeyendaBivariada matriz={matriz} unidad={unidad} onHover={onHover} total={total} />;
   return (
     <div className="space-y-2.5">
       {titulo && <p className="label">{titulo}</p>}
@@ -33,6 +34,34 @@ export function LeyendaMapa({ items, escala, unidad, onHover, titulo }: {
           <div className="mapa-escala">{escala.map((s) => <span key={s.t}><i style={{ background: s.color }} />{s.t}<small className="num"> · {s.n}</small></span>)}</div>
         </div>
       )}
+      {nota && <p className="text-xs font-semibold" style={{ color: "var(--fg-soft)" }}>{nota}</p>}
+      <p className="text-xs" style={{ color: "var(--fg-mute)" }}>{fmt(total)} {total === 1 ? unidad[0] : unidad[1]} con datos</p>
+    </div>
+  );
+}
+
+/** Leyenda 3×3 del bivariado: vertical, fuerza del partido; horizontal, participación. Cada celda dice cuántas unidades hay. */
+function LeyendaBivariada({ matriz, unidad, onHover, total }: { matriz: NonNullable<Leyenda["matriz"]>; unidad: [string, string]; onHover?: (k: string | null) => void; total: number }) {
+  const { n, cortes, partido } = matriz;
+  const P = partido.toUpperCase();
+  return (
+    <div className="space-y-2">
+      <p className="label">{P} × participación</p>
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="mapa-biv" role="group" aria-label="Leyenda bivariada">
+          <span className="mapa-biv-eje" style={{ gridRow: "1 / 4" }}>{P} →</span>
+          {[2, 1, 0].map((a) => [0, 1, 2].map((b) => (
+            <button key={`${a}-${b}`} type="button" style={{ background: colorBivariado(a, b) }} onPointerEnter={() => onHover?.(`${a}-${b}`)} onPointerLeave={() => onHover?.(null)}
+              onFocus={() => onHover?.(`${a}-${b}`)} onBlur={() => onHover?.(null)} aria-label={`${P} ${["débil", "medio", "fuerte"][a]}, participación ${["baja", "media", "alta"][b]}: ${n[a][b]}`}>
+              {n[a][b]}</button>)))}
+          <span /><span className="mapa-biv-eje" style={{ gridColumn: "2 / 5" }}>participación →</span>
+        </div>
+        <ul className="text-xs space-y-1 max-w-[250px]" style={{ color: "var(--fg-soft)" }}>
+          <li><b>Arriba a la izquierda</b>: {P} fuerte y se vota poco → votos por movilizar ({n[2][0]}).</li>
+          <li><b>Abajo a la derecha</b>: {P} débil y se vota mucho → la competencia sí sale ({n[0][2]}).</li>
+          <li style={{ color: "var(--fg-mute)" }}>Cortes (terciles de lo que se ve): {P} {cortes.partido[0].toFixed(0)}% y {cortes.partido[1].toFixed(0)}%; participación {cortes.part[0].toFixed(0)}% y {cortes.part[1].toFixed(0)}%.</li>
+        </ul>
+      </div>
       <p className="text-xs" style={{ color: "var(--fg-mute)" }}>{fmt(total)} {total === 1 ? unidad[0] : unidad[1]} con datos</p>
     </div>
   );
@@ -51,7 +80,10 @@ export function AvisoPrep({ meta, donde }: { meta: PrepMeta; donde?: string }) {
 }
 
 /** Contenido de la tarjeta flotante de una unidad. Con `completo`, también la lista de candidaturas (si la unidad las trae). */
-export function FichaUnidad({ nombre, u, metrica, partido, nota, completo }: { nombre: string; u: UnidadMapa | undefined; metrica: Metrica; partido: string; nota?: string; completo?: boolean }) {
+export function FichaUnidad({ nombre, u, metrica, partido, nota, completo, prev, comparar }: {
+  nombre: string; u: UnidadMapa | undefined; metrica: Metrica; partido: string; nota?: string; completo?: boolean;
+  /** la misma unidad en la elección de comparación (métrica «Cambio») y su etiqueta */ prev?: UnidadMapa | null; comparar?: string;
+}) {
   const { enfoque } = useEnfoque();
   if (!u) return <div className="space-y-0.5"><b>{nombre}</b><p style={{ color: "var(--fg-mute)" }}>{nota ?? "Sin datos de esta elección"}</p></div>;
   const top = Object.entries(u.alc).sort((a, b) => b[1] - a[1]).slice(0, 4);
@@ -67,7 +99,11 @@ export function FichaUnidad({ nombre, u, metrica, partido, nota, completo }: { n
           {enfoque !== "general" && u.margen_enfoque !== null && <span style={{ color: "var(--fg-mute)" }}> · {enfoque.toUpperCase()} {pct(u.p_enfoque)} ({u.margen_enfoque > 0 ? "+" : ""}{u.margen_enfoque.toFixed(1)})</span>}</p>)}
       {u.ganador && u.candidatos?.[u.ganador] && <p>Candidatura ganadora: <b>{titulo(u.candidatos[u.ganador])}</b></p>}
       <p style={{ color: "var(--fg-mute)" }}>Participación <b style={{ color: metrica === "participacion" ? "var(--azul)" : "var(--fg)" }}>{pct(u.participacion)}</b> · {fmt(u.votos_totales)} votos</p>
-      {metrica === "partido" && <p>{partido.toUpperCase()}: <b>{pct(u.alc[partido] ?? 0)}</b> <span style={{ color: "var(--fg-mute)" }}>(solo o en coalición)</span></p>}
+      {(metrica === "partido" || metrica === "bivariado") && <p>{partido.toUpperCase()}: <b>{pct(u.alc[partido] ?? 0)}</b> <span style={{ color: "var(--fg-mute)" }}>(solo o en coalición)</span></p>}
+      {metrica === "cambio" && (prev && prev.ganador
+        ? <p>{partido.toUpperCase()}: {pct(prev.alc[partido] ?? 0)} → <b>{pct(u.alc[partido] ?? 0)}</b> <b style={{ color: (u.alc[partido] ?? 0) >= (prev.alc[partido] ?? 0) ? "var(--azul)" : "var(--rose)" }}>({(u.alc[partido] ?? 0) - (prev.alc[partido] ?? 0) > 0 ? "+" : ""}{((u.alc[partido] ?? 0) - (prev.alc[partido] ?? 0)).toFixed(1)} pts)</b>{comparar && <span style={{ color: "var(--fg-mute)" }}> frente a {comparar}</span>}</p>
+        : <p style={{ color: "var(--fg-mute)" }}>Sin comparación{comparar ? ` con ${comparar}` : ""}: no existe en ambas elecciones.</p>)}
+      {u.faltan != null && enfoque !== "general" && <p>A {enfoque.toUpperCase()} le faltan <b style={{ color: "var(--rose)" }}>{fmt(u.faltan)} votos</b> para ganar.</p>}
       <div className="space-y-0.5 pt-0.5">
         {top.map(([p, v]) => (
           <div key={p} className="grid grid-cols-[3.2rem_1fr_2.6rem] items-center gap-1.5 text-[.7rem]">

@@ -45,9 +45,12 @@ app/(app)/            pantallas (cliente)
                       competitividad, serie y piso/techo
   historico/          evolución de un cargo en un territorio y elección A vs B
   municipios/         comparar territorios del mismo tipo de elección
-  estados/            mapa nacional por entidad: colorear por quién ganó, qué tan reñido (sigue el enfoque), participación o fuerza de un
-                      partido; vista mapa o mosaico (cuadros iguales); leyenda que resalta; frases «lo que dice el mapa». Las entidades
-                      con cartografía (public/geo/entidades.json) se abren por municipio, distrito y sección (components/MapaEntidad)
+  estados/            mapa nacional por entidad. «Colorear por» (lib/mapa METRICAS): quién ganó, qué tan reñido, campo de batalla
+                      (enfoque; borde en ±5), cambio frente a otra elección del cargo (sin comparación = rayado), participación, fuerza
+                      de un partido, fuerza × participación (bivariado 3×3 por terciles). «Dibujar como» (VISTAS): áreas, círculos
+                      (área ∝ votos), objetivos (enfoque: círculo = votos que faltan donde pierde por ≤ 15) e historia (últimas 4
+                      elecciones). Mapa o mosaico; leyenda que resalta; frases «lo que dice el mapa». Las entidades con cartografía
+                      (public/geo/entidades.json) se abren por municipio, distrito y sección con lo mismo (components/MapaEntidad)
   distritos/          distritos federales y locales, circunscripciones
   secciones/          lectura por sección, edad de la sección, tendencia frente al país, comparación y estrategia
   electorado/         lista nominal por edad y sexo
@@ -58,7 +61,9 @@ app/api/              rutas de datos (route handlers) y auth/
 components/           Buscador (autocompletado), Territorio, Piramide, PisoTecho, TendenciaSeccion, EdadSeccion,
                       Enfoque (contexto + selector + CeldaClase), EstrategiaSecciones, PerfilParticipacion, Waffle, Kpi,
                       Plegable (detalle un nivel abajo), MiniGraficas (SVG; colores --serie-fed/--serie-loc validados para daltonismo),
-                      MapaGeo (coroplético con zoom, tarjeta y etiquetas), MosaicoEstados, MapaPiezas (leyenda y ficha), MapaEntidad…
+                      MapaGeo (coroplético con zoom, tarjeta, etiquetas, círculos, bordes, rayado; `simple` para miniaturas),
+                      MosaicoEstados, MapaPiezas (leyenda, matriz bivariada y ficha), useCapaMapa (métrica + vista → colores, círculos,
+                      bordes, leyenda: lo comparten el mapa nacional, el de la entidad y el del municipio), MapaEntidad…
 lib/
   analisis.ts         lecturas: porCandidatura, porBloque, familia, indicadores, pedersen, competitividad, ENFOQUES, claseEnfoque
   tendencia.ts        tendencia de una sección frente al país y su estado
@@ -179,7 +184,8 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 - **Uso:** `<Ayuda clave="participacion" />`, o `<Ayuda titulo="…">contenido con los números de esa fila</Ayuda>` (así se explica «Votos posibles hoy» con la cuenta real de cada partido).
 - `Kpi` y las tarjetas `Dato` aceptan `ayuda="clave"`.
 - **Toda medida nueva lleva su entrada en el glosario y su «?».** Si cambia un cálculo, cambia su explicación.
-- Ya lo tienen: participación, votos emitidos, primera fuerza, margen, número efectivo de partidos, volatilidad, competitividad (general y con enfoque), lecturas (candidatura, boleta, alcance, bloque), piso, techo, rango, votos posibles hoy, con aliados y propios, cambio de ganador, continuidad, frente al país, relación, distancia, concurrentes, edad y sexo, votos para ganar, potencial y el selector de enfoque.
+- Ya lo tienen: participación, votos emitidos, primera fuerza, margen, número efectivo de partidos, volatilidad, competitividad (general y con enfoque), lecturas (candidatura, boleta, alcance, bloque), piso, techo, rango, votos posibles hoy, con aliados y propios, cambio de ganador, continuidad, frente al país, relación, distancia, concurrentes, edad y sexo, votos para ganar, potencial, el selector de enfoque y cada métrica de los mapas (`mapa_<métrica>`: ganador, competitividad, batalla, cambio, participación, partido, bivariado, y `mapa_entidad`).
+- **Votos que faltan** (`faltanParaGanar` en `lib/analisis.ts`, campo `faltan` de `/api/mapa`): votos de la candidatura ganadora − los de la candidatura del partido de enfoque + 1; solo donde pierde. Es la misma definición que «Votos para ganar».
 
 ## 6. Usuarios y seguridad
 

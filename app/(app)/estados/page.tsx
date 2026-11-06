@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Map as IcoMapa, LayoutGrid, MapPinned } from "lucide-react";
+import { Map as IcoMapa, LayoutGrid, MapPinned, Info } from "lucide-react";
 import { api } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
 import { useEnfoque, CeldaClase } from "@/components/Enfoque";
@@ -12,17 +12,41 @@ import { Ayuda } from "@/components/Ayuda";
 import { Cargando } from "@/components/Kpi";
 import { alcance, colorPartido, nombreEleccion } from "@/lib/partidos";
 import { fmt, pct } from "@/lib/format";
-import { ENFOQUES, ETIQ_CLASE, indicadores, nombreCandidatura, porCandidatura, claseUnidad } from "@/lib/analisis";
-import { METRICAS, colorUnidad, leyenda, partidosPresentes, type EntidadGeo, type Metrica, type UnidadMapa } from "@/lib/mapa";
+import { ENFOQUES, ETIQ_CLASE, indicadores, nombreCandidatura, porCandidatura, claseUnidad, faltanParaGanar, type Enfoque } from "@/lib/analisis";
+import { METRICAS, VISTAS, cambioDe, partidosPresentes, type EntidadGeo, type Metrica, type UnidadMapa, type Vista } from "@/lib/mapa";
+import { useCapaMapa } from "@/components/useCapaMapa";
+import { MarcaPrep } from "@/components/Prep";
 import { AvisoPrep, type PrepMeta } from "@/components/MapaPiezas";
 
-// Mapa nacional: UNA elección (cargo + año) por entidad. Cuatro maneras de colorear (quién ganó, qué tan reñido —desde el partido de
-// enfoque—, participación y fuerza de un partido), en mapa o en mosaico de cuadros iguales. La leyenda cuenta entidades y resalta las
-// suyas; el panel resume en frases lo que dice el mapa. Las entidades con cartografía del INE (public/geo/entidades.json) se abren
-// por municipio, distrito y sección.
+// Mapa nacional: UNA elección (cargo + año) por entidad. «Colorear por» (lib/mapa METRICAS): quién ganó, qué tan reñido, campo de
+// batalla (desde el partido de enfoque), cambio frente a otra elección, participación, fuerza de un partido y fuerza × participación.
+// «Dibujar como» (VISTAS): áreas, círculos del tamaño de los votos, objetivos (votos que faltan) e historia (últimas cuatro elecciones);
+// en mapa o en mosaico de cuadros iguales. La leyenda cuenta entidades y resalta las suyas; el panel resume en frases lo que dice el
+// mapa. Las entidades con cartografía del INE (public/geo/entidades.json) se abren por municipio, distrito y sección con lo mismo.
 
 type Fila = { id_estado: number; votos_totales: number | null; nulos: number | null; lista_nominal: number | null; confianza: string | null; fuente: string; partidos: Record<string, number> };
 const FEDERALES = new Set(["presidente", "senado", "diputados_federales"]);
+
+/** Cada entidad en el mismo formato que el mapa de una entidad (lib/mapa.ts) */
+function aUnidades(filas: Fila[], enfoque: Enfoque): UnidadMapa[] {
+  return filas.map((f) => {
+    const base = Object.values(f.partidos).reduce((a, b) => a + b, 0);
+    const cand = porCandidatura(f.partidos), ind = indicadores(cand);
+    return {
+      id: f.id_estado, votos_totales: f.votos_totales, lista_nominal: f.lista_nominal,
+      participacion: f.lista_nominal && f.votos_totales ? (100 * f.votos_totales) / f.lista_nominal : null,
+      ganador: ind.ganador, p_ganador: ind.pGanador, segundo: ind.segundo, margen: ind.margen, ...claseUnidad(cand, ind.margen, enfoque),
+      faltan: faltanParaGanar(cand, enfoque),
+      alc: Object.fromEntries(Object.entries(alcance(f.partidos)).filter(([, v]) => base && v / base >= 0.005).map(([k, v]) => [k, (100 * v) / base])),
+    };
+  }).filter((u) => u.ganador);
+}
+const cacheEstados = new Map<string, Promise<{ estados: Fila[]; prep?: Record<number, PrepMeta> }>>();
+const pedirEstados = (eleccion: string, anio: number) => {
+  const k = `${eleccion}|${anio}`;
+  if (!cacheEstados.has(k)) cacheEstados.set(k, api<{ estados: Fila[]; prep?: Record<number, PrepMeta> }>(`/api/estados?eleccion=${eleccion}&anio=${anio}`).catch((e) => { cacheEstados.delete(k); throw e; }));
+  return cacheEstados.get(k)!;
+};
 
 export default function Estados() {
   const cat = useCatalogo();
@@ -31,7 +55,10 @@ export default function Estados() {
   const [anio, setAnio] = useState<number | null>(null);
   const [metrica, setMetrica] = useState<Metrica>("ganador");
   const [partido, setPartido] = useState("morena");
-  const [vista, setVista] = useState<"mapa" | "mosaico">("mapa");
+  const [forma, setForma] = useState<"mapa" | "mosaico">("mapa");
+  const [vista, setVista] = useState<Vista>("areas");
+  const [comparar, setComparar] = useState<number | null>(null);
+  const [filasPrev, setFilasPrev] = useState<Fila[] | null>(null);
   const [filas, setFilas] = useState<Fila[] | null>(null);
   const [sel, setSel] = useState<number | null>(null);
   const [resaltar, setResaltar] = useState<string | null>(null);
@@ -50,37 +77,38 @@ export default function Estados() {
   useEffect(() => {
     if (anio === null) return;
     setFilas(null);
-    api<{ estados: Fila[]; prep?: Record<number, PrepMeta> }>(`/api/estados?eleccion=${eleccion}&anio=${anio}`).then((d) => { setFilas(d.estados); setPrep(d.prep ?? {}); }).catch(() => setFilas([]));
+    pedirEstados(eleccion, anio).then((d) => { setFilas(d.estados); setPrep(d.prep ?? {}); }).catch(() => setFilas([]));
   }, [eleccion, anio]);
+  // «Cambio»: contra otra elección del mismo cargo; por omisión, la anterior
+  const aniosComparar = useMemo(() => anios.filter((a) => a !== anio), [anios, anio]);
+  useEffect(() => { if (comparar === null || comparar === anio || !anios.includes(comparar)) setComparar(anios.find((a) => anio !== null && a < anio) ?? aniosComparar[0] ?? null); }, [anios, anio, comparar, aniosComparar]);
+  useEffect(() => {
+    setFilasPrev(null);
+    if (metrica !== "cambio" || comparar === null) return;
+    pedirEstados(eleccion, comparar).then((d) => setFilasPrev(d.estados)).catch(() => setFilasPrev([]));
+  }, [eleccion, comparar, metrica]);
 
   const nombres = useMemo(() => Object.fromEntries((cat?.estados ?? []).map((e) => [e.id_estado, e.nombre_corto])), [cat]);
   const abrev = useMemo(() => Object.fromEntries((cat?.estados ?? []).map((e) => [e.id_estado, (e as { abreviatura?: string }).abreviatura ?? String(e.id_estado)])), [cat]);
 
-  // Cada entidad en el mismo formato que el mapa de una entidad (lib/mapa.ts)
-  const unidades = useMemo<UnidadMapa[]>(() => (filas ?? []).map((f) => {
-    const base = Object.values(f.partidos).reduce((a, b) => a + b, 0);
-    const cand = porCandidatura(f.partidos), ind = indicadores(cand);
-    return {
-      id: f.id_estado, votos_totales: f.votos_totales, lista_nominal: f.lista_nominal,
-      participacion: f.lista_nominal && f.votos_totales ? (100 * f.votos_totales) / f.lista_nominal : null,
-      ganador: ind.ganador, p_ganador: ind.pGanador, segundo: ind.segundo, margen: ind.margen, ...claseUnidad(cand, ind.margen, enfoque),
-      alc: Object.fromEntries(Object.entries(alcance(f.partidos)).filter(([, v]) => base && v / base >= 0.005).map(([k, v]) => [k, (100 * v) / base])),
-    };
-  }).filter((u) => u.ganador), [filas, enfoque]);
+  const unidades = useMemo(() => aUnidades(filas ?? [], enfoque), [filas, enfoque]);
   const porId = useMemo(() => new Map(unidades.map((u) => [u.id, u])), [unidades]);
+  const prev = useMemo(() => metrica !== "cambio" ? null : filasPrev ? new Map(aUnidades(filasPrev, enfoque).map((u) => [u.id, u])) : null, [metrica, filasPrev, enfoque]);
   const partidos = useMemo(() => partidosPresentes(unidades), [unidades]);
   useEffect(() => { if (partidos.length && !partidos.includes(partido)) setPartido(partidos[0]); }, [partidos, partido]);
-  const colores = useMemo(() => Object.fromEntries(unidades.map((u) => [u.id, colorUnidad(u, metrica, partido)])), [unidades, metrica, partido]);
-  const ley = useMemo(() => leyenda(unidades, metrica, partido, enfoque), [unidades, metrica, partido, enfoque]);
-  const idsResaltados = useMemo(() => {
-    if (!resaltar) return null;
-    const it = ley.items.find((x) => x.k === resaltar);
-    return new Set(unidades.filter((u) => metrica === "ganador" ? u.ganador === resaltar : metrica === "competitividad" ? u.clase === resaltar : colorUnidad(u, metrica, partido) === it?.color).map((u) => u.id));
-  }, [resaltar, ley, unidades, metrica, partido]);
-  const valorCorto = useMemo(() => Object.fromEntries(unidades.map((u) => [u.id,
-    metrica === "participacion" ? pct(u.participacion, 0) : metrica === "partido" ? pct(u.alc[partido] ?? 0, 0)
-      : metrica === "competitividad" && enfoque !== "general" && u.margen_enfoque !== null ? `${u.margen_enfoque > 0 ? "+" : ""}${u.margen_enfoque.toFixed(0)}`
-      : `${u.margen?.toFixed(0)} pts`])), [unidades, metrica, partido, enfoque]);
+  // El mosaico no lleva círculos: con mosaico, círculos y objetivos se pintan como áreas
+  const vistaMapa: Vista = vista === "historia" || (forma === "mosaico" && vista === "circulos") ? "areas" : vista;
+  const capa = useCapaMapa({ unidades, metrica, partido, enfoque, vista: vistaMapa, prev, resaltar });
+  const valorCorto = useMemo(() => Object.fromEntries(unidades.map((u) => {
+    const ce = u.margen_enfoque !== null ? `${u.margen_enfoque > 0 ? "+" : ""}${u.margen_enfoque.toFixed(0)}` : "—";
+    const c = metrica === "cambio" ? cambioDe(u, partido, prev) : null;
+    return [u.id, vista === "objetivos" ? (u.faltan != null ? fmtK(u.faltan) : ce)
+      : metrica === "participacion" ? pct(u.participacion, 0) : metrica === "partido" || metrica === "bivariado" ? pct(u.alc[partido] ?? 0, 0)
+      : metrica === "batalla" || (metrica === "competitividad" && enfoque !== "general") ? ce
+      : metrica === "cambio" ? (c === null ? "s/c" : `${c > 0 ? "+" : ""}${c.toFixed(0)}`)
+      : `${u.margen?.toFixed(0)} pts`];
+  })), [unidades, metrica, partido, enfoque, prev, vista]);
+  const necesitaEnfoque = enfoque === "general" && (metrica === "batalla" || vista === "objetivos");
 
   const local = !FEDERALES.has(eleccion);
   const enf = ENFOQUES.find((e) => e.id === enfoque)!;
@@ -88,8 +116,11 @@ export default function Estados() {
   const elegir = (id: number | null) => { setSel(id); };
   const entSel = sel !== null ? conGeo(sel) : undefined;
   const tip = (id: number) => <FichaUnidad nombre={nombres[id] ?? String(id)} u={porId.get(id)} metrica={metrica} partido={partido}
+    prev={prev?.get(id) ?? null} comparar={comparar !== null ? String(comparar) : undefined}
     nota={local ? `Sin elección de ${(nombreEleccion[eleccion] ?? eleccion).toLowerCase()} en ${anio}` : undefined} />;
-  const desc = METRICAS.find((m) => m.id === metrica)!.d;
+  const met = METRICAS.find((m) => m.id === metrica)!;
+  const desc = met.d;
+  const usaPartido = metrica === "partido" || metrica === "bivariado" || metrica === "cambio";
 
   return (
     <>
@@ -107,10 +138,16 @@ export default function Estados() {
         <div className="mapa-ctl"><span className="label">Colorear por</span>
           <div className="flex flex-wrap items-center gap-2">
             <div className="seg" role="group" aria-label="Colorear por">{METRICAS.map((m) => <button key={m.id} type="button" aria-pressed={metrica === m.id} onClick={() => { setMetrica(m.id); setResaltar(null); }}>{m.t}</button>)}</div>
-            {metrica === "partido" && <select className="field" aria-label="Partido" style={{ width: "auto" }} value={partido} onChange={(e) => setPartido(e.target.value)}>{partidos.map((p) => <option key={p} value={p}>{p.toUpperCase()}</option>)}</select>}
+            {usaPartido && <select className="field" aria-label="Partido" style={{ width: "auto" }} value={partido} onChange={(e) => setPartido(e.target.value)}>{partidos.map((p) => <option key={p} value={p}>{p.toUpperCase()}</option>)}</select>}
+            {metrica === "cambio" && <label className="text-sm inline-flex items-center gap-1.5" style={{ color: "var(--fg-soft)" }}>frente a
+              <select className="field" style={{ width: "auto" }} value={comparar ?? ""} onChange={(e) => setComparar(Number(e.target.value))}>
+                {aniosComparar.map((a) => <option key={a} value={a}>{a}{aniosPrep.has(a) ? " · PREP" : ""}</option>)}</select></label>}
             {metrica === "competitividad" && <span className="text-xs font-semibold" style={{ color: enf.color }}>{enfoque === "general" ? "Entre las dos primeras fuerzas" : `Desde ${enf.t}`}<Ayuda clave={enfoque === "general" ? "competitividad" : "competitividad_enfoque"} tam={12} /></span>}
           </div></div>
-        <p className="text-xs" style={{ color: "var(--fg-mute)" }}>{desc}{metrica === "competitividad" && " Cambia el partido de enfoque en la barra superior."}</p>
+        <div className="mapa-ctl"><span className="label">Dibujar como</span>
+          <div className="seg" role="group" aria-label="Dibujar como">{VISTAS.map((v) => <button key={v.id} type="button" aria-pressed={vista === v.id} title={v.d} onClick={() => { setVista(v.id); setResaltar(null); }}>{v.t}</button>)}</div></div>
+        <p className="text-xs" style={{ color: "var(--fg-mute)" }}>{desc} {VISTAS.find((v) => v.id === vista)!.d}{(metrica === "competitividad" || metrica === "batalla" || vista === "objetivos") && " El partido se elige en «Enfoque», en la barra superior."}<Ayuda clave={`mapa_${metrica}`} tam={12} /></p>
+        {necesitaEnfoque && <p className="aviso text-sm"><Info size={14} className="inline -mt-0.5 mr-1" />{metrica === "batalla" ? "«Campo de batalla»" : "«Objetivos»"} se lee desde un partido: elige Morena, PAN, PRI o MC en <b>Enfoque</b>, en la barra superior.</p>}
       </section>
 
       {Object.keys(prep).length > 0 && filas && <AvisoPrep meta={Object.values(prep)[0]} donde={Object.keys(prep).map((k) => nombres[Number(k)]).join(", ")} />}
@@ -122,17 +159,20 @@ export default function Estados() {
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
           <section className="material p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-bold">{METRICAS.find((m) => m.id === metrica)!.t}{metrica === "partido" ? ` · ${partido.toUpperCase()}` : ""}</p>
-              <div className="seg" role="group" aria-label="Vista">
-                <button type="button" aria-pressed={vista === "mapa"} onClick={() => setVista("mapa")}><IcoMapa size={14} className="inline -mt-0.5 mr-1" />Mapa</button>
-                <button type="button" aria-pressed={vista === "mosaico"} onClick={() => setVista("mosaico")} title="Un cuadro igual por entidad: se ven las pequeñas"><LayoutGrid size={14} className="inline -mt-0.5 mr-1" />Mosaico</button>
-              </div>
+              <p className="font-bold">{vista === "objetivos" ? `Objetivos de ${enf.t}` : met.t}{usaPartido ? ` · ${partido.toUpperCase()}` : ""}{metrica === "batalla" && enfoque !== "general" ? ` · ${enf.t}` : ""}{metrica === "cambio" && comparar !== null ? ` · ${comparar} → ${anio}` : ""}</p>
+              {vista !== "historia" && <div className="seg" role="group" aria-label="Forma">
+                <button type="button" aria-pressed={forma === "mapa"} onClick={() => setForma("mapa")}><IcoMapa size={14} className="inline -mt-0.5 mr-1" />Mapa</button>
+                <button type="button" aria-pressed={forma === "mosaico"} onClick={() => setForma("mosaico")} title="Un cuadro igual por entidad: se ven las pequeñas"><LayoutGrid size={14} className="inline -mt-0.5 mr-1" />Mosaico</button>
+              </div>}
             </div>
-            {vista === "mapa"
-              ? <MapaGeo url="/geo/estados.geojson" idProp="state_code" colores={colores} seleccion={sel} onSelect={elegir} tooltip={tip} etiquetas={abrev} etiquetaMin={700} resaltar={idsResaltados} alto={560} />
-              : <MosaicoEstados colores={colores} abrev={abrev} valor={valorCorto} seleccion={sel} onSelect={elegir} tooltip={tip} resaltar={idsResaltados} hover={hoverMos} setHover={setHoverMos} />}
-            <LeyendaMapa items={ley.items} escala={ley.escala} unidad={["entidad", "entidades"]} onHover={setResaltar}
-              titulo={metrica === "ganador" ? "Entidades ganadas · pasa el cursor para ubicarlas" : metrica === "competitividad" ? (enfoque === "general" ? "Competitividad" : `Desde ${enf.t}`) : undefined} />
+            {vista === "historia"
+              ? <HistoriaNacional eleccion={eleccion} anio={anio!} anios={anios} metrica={metrica} partido={partido} nombres={nombres} abrev={abrev} />
+              : forma === "mapa"
+              ? <MapaGeo url="/geo/estados.geojson" idProp="state_code" colores={capa.colores} circulos={capa.circulos} bordes={capa.bordes} seleccion={sel} onSelect={elegir} tooltip={tip}
+                  etiquetas={vista === "areas" ? abrev : undefined} etiquetaMin={700} resaltar={capa.resaltados} alto={560} />
+              : <MosaicoEstados colores={capa.colores} abrev={abrev} valor={valorCorto} seleccion={sel} onSelect={elegir} tooltip={tip} resaltar={capa.resaltados} hover={hoverMos} setHover={setHoverMos} />}
+            {vista !== "historia" && <LeyendaMapa {...capa.ley} unidad={["entidad", "entidades"]} onHover={setResaltar}
+              titulo={vista === "objetivos" ? `Desde ${enf.t}` : metrica === "ganador" ? "Entidades ganadas · pasa el cursor para ubicarlas" : metrica === "competitividad" || metrica === "batalla" ? (enfoque === "general" ? "Competitividad" : `Desde ${enf.t}`) : undefined} />}
           </section>
 
           <section className="material p-4 space-y-4" ref={detalle}>
@@ -153,7 +193,7 @@ export default function Estados() {
         </div>
       )}
 
-      {entSel && anio !== null && porId.has(entSel.id) && <MapaEntidad ent={entSel} eleccion={eleccion} anio={anio} metrica={metrica} partido={partido} />}
+      {entSel && anio !== null && porId.has(entSel.id) && <MapaEntidad ent={entSel} eleccion={eleccion} anio={anio} metrica={metrica} partido={partido} vista={vista} comparar={metrica === "cambio" ? comparar : null} />}
       {entSel && anio !== null && !porId.has(entSel.id) && <p className="material p-4 text-sm">{entSel.nombre} no tuvo elección de {(nombreEleccion[eleccion] ?? eleccion).toLowerCase()} en {anio}: elige otro año o cargo para ver su mapa por dentro.</p>}
 
       <section className="material p-4">
@@ -163,6 +203,10 @@ export default function Estados() {
           <li><b>Qué tan reñido</b>: en «General», el margen entre las dos primeras; con un partido de enfoque, si ese partido gana o pierde y por cuánto.</li>
           <li><b>Participación</b>: votos emitidos ÷ lista nominal, en cinco tramos fijos para que dos mapas se comparen entre sí.</li>
           <li><b>Fuerza de un partido</b>: % de los votos que pasaron por el partido, solo o en coalición (alcance). No suma 100% entre partidos.</li>
+          <li><b>Campo de batalla</b>: desde el partido de enfoque, margen sobre la mejor rival (gana) o distancia a la ganadora (pierde), en ocho tramos; las unidades a menos de 5 puntos llevan borde.</li>
+          <li><b>Cambio</b>: puntos que subió o bajó el % del partido frente a la elección elegida del mismo cargo. Una unidad que no existe en ambas (otra distritación, reseccionamiento, sin elección) va rayada: sin comparación.</li>
+          <li><b>Fuerza × participación</b>: tres niveles de cada uno, cortados en los terciles de lo que se ve (cambian con la elección y el territorio); no se comparan entre mapas distintos.</li>
+          <li><b>Círculos</b>: área del círculo proporcional a los votos emitidos. <b>Objetivos</b>: donde el partido de enfoque pierde por 15 puntos o menos, el círculo es el número de votos que le faltan (votos de la ganadora − los suyos + 1); no cuenta votantes nuevos. <b>Historia</b>: las últimas cuatro elecciones del cargo, misma escala.</li>
           <li>El <b>mosaico</b> da a cada entidad el mismo tamaño: el mapa exagera las entidades grandes y poco pobladas (Chihuahua, Sonora) y esconde las pequeñas y muy pobladas (CDMX, Tlaxcala).</li>
           <li>Cómputos oficiales en su fecha de corte, antes de las resoluciones del Tribunal Electoral.</li>
         </ul>
@@ -246,6 +290,44 @@ function DetalleEntidad({ nombre, u, f, anio, geo, esPrep, onCerrar }: { nombre:
           </div>))}
       </div>
       {geo && <p className="text-sm font-semibold" style={{ color: "var(--azul)" }}><MapPinned size={14} className="inline -mt-0.5 mr-1" />Su mapa por municipio, distrito y sección está abajo.</p>}
+    </div>
+  );
+}
+
+const fmtK = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}k` : String(n));
+
+/** Vista «Historia» del país: las últimas cuatro elecciones del cargo hasta el año elegido, misma escala. Con «Cambio», cada una contra la anterior. */
+function HistoriaNacional({ eleccion, anio, anios, metrica, partido, nombres, abrev }: {
+  eleccion: string; anio: number; anios: number[]; metrica: Metrica; partido: string; nombres: Record<number, string>; abrev: Record<number, string>;
+}) {
+  const ultimos = [...anios].filter((a) => a <= anio).sort((a, b) => a - b).slice(-4);
+  return (
+    <div className="space-y-2">
+      <p className="text-sm" style={{ color: "var(--fg-soft)" }}>Las {ultimos.length} últimas elecciones de {(nombreEleccion[eleccion] ?? eleccion).toLowerCase()} hasta {anio}, con la misma escala; el recuadro marca el año elegido.{metrica === "cambio" && " Con «Cambio», cada mapa se compara con el anterior de la fila."}</p>
+      <div className="mapa-multi">{ultimos.map((a, i) => <MiniNacional key={a} eleccion={eleccion} anio={a} anterior={i ? ultimos[i - 1] : null} actual={a === anio} metrica={metrica} partido={partido} nombres={nombres} abrev={abrev} />)}</div>
+    </div>
+  );
+}
+function MiniNacional({ eleccion, anio, anterior, actual, metrica, partido, nombres, abrev }: {
+  eleccion: string; anio: number; anterior: number | null; actual: boolean; metrica: Metrica; partido: string; nombres: Record<number, string>; abrev: Record<number, string>;
+}) {
+  const { enfoque } = useEnfoque();
+  const [filas, setFilas] = useState<Fila[] | null>(null);
+  const [filasA, setFilasA] = useState<Fila[] | null>(null);
+  useEffect(() => { setFilas(null); pedirEstados(eleccion, anio).then((d) => setFilas(d.estados)).catch(() => setFilas([])); }, [eleccion, anio]);
+  useEffect(() => { setFilasA(null); if (metrica === "cambio" && anterior !== null) pedirEstados(eleccion, anterior).then((d) => setFilasA(d.estados)).catch(() => setFilasA([])); }, [eleccion, anterior, metrica]);
+  const us = useMemo(() => aUnidades(filas ?? [], enfoque), [filas, enfoque]);
+  const porId = useMemo(() => new Map(us.map((u) => [u.id, u])), [us]);
+  const prev = useMemo(() => metrica !== "cambio" ? null : anterior === null ? new Map<number, UnidadMapa>() : filasA ? new Map(aUnidades(filasA, enfoque).map((u) => [u.id, u])) : null, [metrica, anterior, filasA, enfoque]);
+  const capa = useCapaMapa({ unidades: us, metrica, partido, enfoque, vista: "areas", prev });
+  const gan = useMemo(() => { const m = new Map<string, number>(); for (const u of us) if (u.ganador) m.set(u.ganador, (m.get(u.ganador) ?? 0) + 1); return [...m].sort((a, b) => b[1] - a[1]).slice(0, 2); }, [us]);
+  return (
+    <div data-actual={actual || undefined} className="space-y-1">
+      <p className="text-sm font-bold">{anio}<MarcaPrep eleccion={eleccion} anio={anio} />{anterior !== null && metrica === "cambio" && <span className="font-normal text-xs" style={{ color: "var(--fg-mute)" }}> frente a {anterior}</span>}</p>
+      {!filas ? <div className="skeleton w-full" style={{ aspectRatio: "800 / 520" }} /> : (
+        <MapaGeo url="/geo/estados.geojson" idProp="state_code" colores={capa.colores} bordes={capa.bordes} simple alto={420} etiquetas={abrev} etiquetaMin={2500}
+          tooltip={(id) => <FichaUnidad nombre={nombres[id] ?? String(id)} u={porId.get(id)} metrica={metrica} partido={partido} prev={prev?.get(id) ?? null} comparar={anterior ? String(anterior) : undefined} />} />)}
+      <p className="text-xs" style={{ color: "var(--fg-soft)" }}>{gan.map(([p, n]) => <span key={p} className="mr-2"><span className="mapa-ley-c inline-block align-middle mr-1" style={{ background: colorPartido(p) }} />{nombreCandidatura(p)} {n}</span>)}</p>
     </div>
   );
 }

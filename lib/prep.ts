@@ -5,7 +5,7 @@
 // En la interfaz siempre se presentan como PREP, preliminar, con su corte y su % de actas: nunca como cómputo oficial.
 import coah2026 from "@/data/prep/5_diputados_locales_mr_2026.json";
 import { alcance } from "@/lib/partidos";
-import { indicadores, porCandidatura, claseUnidad, type Enfoque } from "@/lib/analisis";
+import { indicadores, porCandidatura, claseUnidad, faltanParaGanar, type Enfoque } from "@/lib/analisis";
 
 type Fila = { id: number; vt: number; ln: number; actas: number; p: Record<string, number> };
 export type Prep = {
@@ -20,7 +20,7 @@ const TODOS = [coah2026 as unknown as Prep];
 export type PrepMeta = { fuente: "prep"; corte: string; pct_actas: number; actas_contabilizadas: number; actas_esperadas: number; titulo: string };
 export const metaPrep = (p: Prep): PrepMeta => ({ fuente: "prep", corte: p.corte, pct_actas: p.resumen.pct_actas, actas_contabilizadas: p.resumen.actas_contabilizadas, actas_esperadas: p.resumen.actas_esperadas, titulo: p.titulo });
 
-export const prepDe = (eleccion: string, anio: number, estado?: number) => TODOS.filter((p) => p.eleccion === eleccion && p.anio === anio && (estado === undefined || p.estado === estado));
+export const prepDe = (eleccion: string, anio?: number, estado?: number) => TODOS.filter((p) => p.eleccion === eleccion && (anio === undefined || p.anio === anio) && (estado === undefined || p.estado === estado));
 export const catalogoPrep = () => TODOS.map((p) => ({ eleccion: p.eleccion, anio: p.anio, estado: p.estado, ...metaPrep(p) }));
 
 /** Totales de la entidad (suma de sus distritos: incluye las actas sin sección) en el formato de /api/estados. */
@@ -46,7 +46,7 @@ export function unidadesPrep(p: Prep, nivel: string, enfoque: Enfoque, filtro?: 
     return {
       id: f.id, votos_totales: f.vt, lista_nominal: f.ln || null, participacion: f.vt && f.ln ? +((100 * f.vt) / f.ln).toFixed(1) : null,
       ganador: ind.ganador, p_ganador: ind.pGanador === null ? null : +ind.pGanador.toFixed(1), segundo: ind.segundo,
-      margen: ind.margen === null ? null : +ind.margen.toFixed(1), ...claseUnidad(cand, ind.margen, enfoque), alc,
+      margen: ind.margen === null ? null : +ind.margen.toFixed(1), ...claseUnidad(cand, ind.margen, enfoque), faltan: faltanParaGanar(cand, enfoque), alc,
       ...(f.candidatos ? { candidatos: f.candidatos } : {}),
     };
   });

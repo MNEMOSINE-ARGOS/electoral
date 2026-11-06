@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { q } from "@/lib/db";
 import { alcance } from "@/lib/partidos";
-import { indicadores, porCandidatura, claseUnidad, esEnfoque } from "@/lib/analisis";
+import { indicadores, porCandidatura, claseUnidad, esEnfoque, faltanParaGanar } from "@/lib/analisis";
 import { prepDe, unidadesPrep, metaPrep } from "@/lib/prep";
 
 // Datos para pintar el mapa de UNA entidad en UNA elección (tipo + año), al nivel pedido.
 // ?eleccion=presidente&anio=2024&estado=5&nivel=municipio|distrito|distrito_local|seccion[&enfoque=morena]
 //   con nivel=seccion, opcional &municipio=<clave_inegi> | &distrito=<id_distrito> | &distrito_local=<id_distrito>: solo las secciones de esa unidad
 // Cada unidad: ganador por candidatura, margen, clase (general o desde el enfoque), participación y % de alcance por partido.
+// faltan = votos que le faltan al partido de enfoque para ganar (solo donde pierde). anios = años con esa elección en la entidad.
 // Los distritos se leen tal cual vienen en la base: la pantalla decide si la cartografía vale para ese año (public/geo/entidades.json).
 type Tot = { id: string; votos_totales: string | null; lista_nominal: string | null };
 type Vot = { id: string; partido: string; votos: string };
@@ -45,12 +46,19 @@ export async function GET(req: Request) {
       .map((v) => ({ id: porT.get(String(v.totales_id))!, partido: v.partido, votos: v.votos })) : [];
   } else return NextResponse.json({ error: "Nivel no válido" }, { status: 400 });
 
+  // Años con esta elección en la entidad (vista «Historia»), en la base o con PREP registrado
+  // (de la tabla del nivel pedido: hay años con datos por entidad pero no por municipio, distrito ni sección)
+  const tablaAnios = nivel === "seccion" ? "sec_resumen" : nivel === "municipio" ? "agg_mun_totales"
+    : `agg_dis_totales WHERE tipo='${nivel === "distrito" ? "federal" : "local"}' AND`;
+  const whereAnios = tablaAnios.endsWith("AND") ? "" : " WHERE";
+  const anios = [...new Set([...(await q<{ anio: number }>(`SELECT DISTINCT anio FROM ${tablaAnios}${whereAnios} eleccion=$1 AND id_estado=$2 AND extraordinaria=false`, [eleccion, estado])).map((x) => x.anio),
+    ...prepDe(eleccion).filter((x) => x.estado === estado).map((x) => x.anio)])].sort((a, b) => a - b);
   // Sin datos en la base pero con PREP registrado (lib/prep.ts): resultados preliminares, marcados como tales en la respuesta
   const prep = prepDe(eleccion, anio, estado)[0];
   if (!tots.length && prep) {
     const campo = (["municipio", "distrito", "distrito_local"] as const).find((k) => Number(u.searchParams.get(k)));
     const unidades = unidadesPrep(prep, nivel, enfoque, campo ? { campo, valor: Number(u.searchParams.get(campo)) } : undefined);
-    return NextResponse.json({ eleccion, anio, estado, nivel, prep: metaPrep(prep), unidades });
+    return NextResponse.json({ eleccion, anio, estado, nivel, anios, prep: metaPrep(prep), unidades });
   }
   const porId = new Map<string, Record<string, number>>();
   for (const v of votos) { if (!porId.has(v.id)) porId.set(v.id, {}); const r = porId.get(v.id)!; r[v.partido] = (r[v.partido] ?? 0) + Number(v.votos); }
@@ -63,10 +71,10 @@ export async function GET(req: Request) {
     return {
       id: Number(t.id), votos_totales: vt, lista_nominal: ln, participacion: vt && ln ? +((100 * vt) / ln).toFixed(1) : null,
       ganador: ind.ganador, p_ganador: ind.pGanador === null ? null : +ind.pGanador.toFixed(1), segundo: ind.segundo,
-      margen: ind.margen === null ? null : +ind.margen.toFixed(1), ...claseUnidad(cand, ind.margen, enfoque), alc,
+      margen: ind.margen === null ? null : +ind.margen.toFixed(1), ...claseUnidad(cand, ind.margen, enfoque), faltan: faltanParaGanar(cand, enfoque), alc,
     };
   });
   // Datos de la base que son un PREP cargado (fuente «prep_…», scripts/cargar_prep.ts): siguen marcados como preliminares
   const esPrep = prep && (await q<{ fuente: string }>("SELECT fuente FROM agg_est_totales WHERE eleccion=$1 AND anio=$2 AND extraordinaria=false AND id_estado=$3 LIMIT 1", p))[0]?.fuente.startsWith("prep");
-  return NextResponse.json({ eleccion, anio, estado, nivel, unidades, ...(esPrep ? { prep: metaPrep(prep) } : {}) });
+  return NextResponse.json({ eleccion, anio, estado, nivel, anios, unidades, ...(esPrep ? { prep: metaPrep(prep) } : {}) });
 }

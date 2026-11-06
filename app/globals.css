@@ -360,3 +360,14 @@ html { scroll-behavior: smooth; }
 .chip-prep { display:inline-block; margin-left:.35rem; padding:0 .4rem; border-radius:6px; font-size:.62rem; font-weight:800; letter-spacing:.05em; vertical-align:middle;
   color: var(--rose-deep); background: var(--rose-soft); }
 .aviso-prep { border-color: color-mix(in srgb, var(--rose) 35%, transparent); background: color-mix(in srgb, var(--rose) 7%, transparent); }
+.mapa-geo-c { transition: fill 380ms ease, opacity 200ms ease, r 300ms ease; }
+.mapa-geo-c[data-tenue] { opacity: .12; }
+.mapa-biv { display:grid; grid-template-columns: 1.1rem repeat(3, 2.4rem); grid-template-rows: repeat(3, 2.4rem) auto; gap:3px; }
+.mapa-biv button { border-radius:6px; font-size:.75rem; font-weight:800; color: var(--fg); cursor:default; outline:none; transition: transform 120ms;
+  text-shadow: 0 0 3px var(--card-solid); }
+.mapa-biv button:hover, .mapa-biv button:focus-visible { transform: scale(1.08); box-shadow: 0 0 0 2px var(--fg); }
+.mapa-biv-eje { font-size:.65rem; color: var(--fg-mute); display:flex; align-items:center; justify-content:center; }
+.mapa-biv-eje:first-child { writing-mode: vertical-rl; transform: rotate(180deg); }
+.mapa-multi { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:.75rem; }
+.mapa-multi > div { border-radius:12px; padding:.4rem; background: color-mix(in srgb, var(--fg) 3%, transparent); }
+.mapa-multi > div[data-actual] { box-shadow: inset 0 0 0 2px var(--accion); }

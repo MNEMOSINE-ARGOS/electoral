@@ -17,7 +17,7 @@ export const cargarGeo = (url: string) => { if (!cache.has(url)) cache.set(url, 
 const W = 800;
 type T = { k: number; x: number; y: number };
 
-export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tooltip, etiquetas, contorno, encuadrar, resaltar, filtro, grupos, alto: altoMax = 620, etiquetaMin = 1400 }: {
+export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tooltip, etiquetas, contorno, encuadrar, resaltar, filtro, grupos, circulos, bordes, simple, alto: altoMax = 620, etiquetaMin = 1400 }: {
   url: string; idProp?: string;
   /** solo los polígonos con properties[prop] === valor (p. ej. las secciones de un municipio); el mapa se encuadra en ellos */ filtro?: { prop: string; valor: number } | null; colores: Record<number, string>; seleccion?: number | null; onSelect?: (id: number | null) => void;
   tooltip?: (id: number) => ReactNode; etiquetas?: Record<number, string>; contorno?: string | null; encuadrar?: number | null;
@@ -27,6 +27,9 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
   /*  asignacion: grupo de cada polígono cuando no viene en sus propiedades (p. ej. sectores cargados aparte);
    *  colores: si se da, cada polígono lleva un borde del color de su grupo (para grupos sin polígono propio). */
   grupos?: { prop: string; etiquetas: Record<number, string>; asignacion?: Record<number, number>; colores?: Record<number, string> } | null;
+  /** círculos proporcionales en el centro de cada polígono (radio en px del mapa; no crece al acercar) */ circulos?: Record<number, { r: number; color: string }> | null;
+  /** polígonos con borde marcado (p. ej. reñidas del campo de batalla) */ bordes?: Set<number> | null;
+  /** mapa pequeño (vista Historia): sin botones de acercamiento ni rueda */ simple?: boolean;
   alto?: number; etiquetaMin?: number;
 }) {
   const [gj, setGj] = useState<GJ | null>(null);
@@ -80,6 +83,12 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
       tabIndex={pocos && seleccionable ? 0 : undefined} role={pocos && seleccionable ? "button" : undefined} aria-label={pocos ? (etiquetas?.[id] ?? String(id)) : undefined} />
   )), [rutas, colores, resaltar, pocos, seleccionable, etiquetas]);
 
+  // Círculos de mayor a menor, para que los chicos queden encima; con data-id para la ficha y la selección
+  const capaCirculos = useMemo(() => !circulos ? null : rutas.filter((r) => circulos[r.id]).sort((a, b) => circulos[b.id].r - circulos[a.id].r).map(({ id, c }) => (
+    <circle key={`o${id}`} data-id={id} cx={c[0]} cy={c[1]} r={circulos[id].r / Math.sqrt(t.k)} fill={circulos[id].color} fillOpacity={0.82}
+      stroke="var(--card-solid)" strokeWidth={0.8} vectorEffect="non-scaling-stroke" className="mapa-geo-c" data-tenue={resaltar && !resaltar.has(id) ? "" : undefined} />
+  )), [rutas, circulos, t.k, resaltar]);
+
   useEffect(() => { setT({ k: 1, x: 0, y: 0 }); }, [url]);
   useEffect(() => {
     if (encuadrar == null) return;
@@ -106,6 +115,7 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
   useEffect(() => {
     const el = svg.current;
     if (!el) return;
+    if (simple) return;
     const rueda = (e: WheelEvent) => { e.preventDefault(); const [x, y] = aSvg(e); acercar(e.deltaY < 0 ? 1.35 : 1 / 1.35, x, y); };
     el.addEventListener("wheel", rueda, { passive: false });
     return () => el.removeEventListener("wheel", rueda);
@@ -135,13 +145,21 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
         onPointerMove={(e) => arrastre.current && mover(e)}
         onPointerUp={() => { setTimeout(() => { arrastre.current = null; }, 0); }}
         onDoubleClick={(e) => { const [x, y] = aSvg(e); acercar(2, x, y); }}>
+        <defs>
+          {/* «sin comparación»: rayado (lib/mapa RAYADO) */}
+          <pattern id="mapa-rayado" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="6" height="6" fill="color-mix(in srgb, var(--fg) 7%, var(--card-solid))" /><line x1="0" y1="0" x2="0" y2="6" stroke="var(--fg-mute)" strokeWidth="1.3" />
+          </pattern>
+        </defs>
         <g transform={`translate(${t.x},${t.y}) scale(${t.k})`}>
           {/* Eventos delegados en el grupo: los polígonos (hasta miles) no se vuelven a dibujar al mover el cursor */}
           <g onPointerMove={(e) => { const id = idDe(e.target); if (id !== null) mover(e, id); }}
             onClick={(e) => { const id = idDe(e.target); if (id !== null && !arrastre.current?.movio) onSelect?.(seleccion === id ? null : id); }}
             onKeyDown={(e) => { const id = idDe(e.target); if (id !== null && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onSelect?.(seleccion === id ? null : id); } }}>
             {capaBase}
+            {capaCirculos}
           </g>
+          {bordes && rutas.filter((r) => bordes.has(r.id)).map(({ id, d }) => <path key={`r${id}`} d={d} fill="none" stroke="var(--fg)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" pointerEvents="none" />)}
           {grupos?.colores && rutas.map(({ id, d }) => { const v = grupos.asignacion?.[id]; const c = v === undefined ? undefined : grupos.colores![v];
             return c ? <path key={`b${id}`} d={d} fill="none" stroke={c} strokeWidth={2.2} strokeOpacity={0.9} vectorEffect="non-scaling-stroke" strokeLinejoin="round" pointerEvents="none" /> : null; })}
           {rutasCont.map(({ id, d }) => grupos
@@ -155,11 +173,11 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
             <text key={`g${v}`} x={x} y={y} className="mapa-geo-grupo" fontSize={13 / t.k} strokeWidth={4 / t.k}>{txt}</text>))}
         </g>
       </svg>
-      <div className="mapa-geo-zoom" aria-label="Acercamiento">
+      {!simple && <div className="mapa-geo-zoom" aria-label="Acercamiento">
         <button type="button" onClick={() => acercar(1.6)} aria-label="Acercar"><Plus size={15} /></button>
         <button type="button" onClick={() => acercar(1 / 1.6)} aria-label="Alejar" disabled={t.k <= 1}><Minus size={15} /></button>
         <button type="button" onClick={() => setT({ k: 1, x: 0, y: 0 })} aria-label="Ver completo" disabled={t.k <= 1}><Maximize2 size={13} /></button>
-      </div>
+      </div>}
       {tip && hover && (
         <div className="mapa-geo-tip" style={{ left: Math.min(hover.x + 14, anchoCaja - 250), top: hover.y + 14 }}>{tip}</div>
       )}

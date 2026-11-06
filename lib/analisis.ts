@@ -108,6 +108,13 @@ export function claseEnfoque(cand: Record<string, number>, enfoque: Enfoque): { 
     : (-m < 5 ? "reñida_pierde" : -m < 10 ? "alcance" : -m < 20 ? "desventaja" : "adversa");
   return { clase, margen: m, pct: p, candidatura: mia[0] };
 }
+/** Votos que le faltan a la candidatura del partido de enfoque para superar a la ganadora (votos de la ganadora − los suyos + 1).
+ *  null si gana, si no compite o en «General». Misma definición que «Votos para ganar» de la estrategia por sección. */
+export function faltanParaGanar(cand: Record<string, number>, enfoque: Enfoque): number | null {
+  const c = claseEnfoque(cand, enfoque);
+  if (!c.candidatura || c.margen === null || c.margen >= 0) return null;
+  return Math.max(...Object.values(cand)) - cand[c.candidatura] + 1;
+}
 /** Clase de una unidad: la general (entre las dos primeras) o la del partido de enfoque. */
 export function claseUnidad(cand: Record<string, number>, margenGeneral: number | null, enfoque: Enfoque) {
   if (enfoque === "general") return { clase: competitividad(margenGeneral) as Clase | null, margen_enfoque: null as number | null, p_enfoque: null as number | null };
