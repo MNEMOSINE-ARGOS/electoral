@@ -134,14 +134,14 @@ export default function Estados() {
         <div className="mapa-ctl"><span className="label">Elección</span>
           <div className="flex flex-wrap gap-1.5">{tipos.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => setEleccion(t)}>{nombreEleccion[t] ?? t}</button>)}</div></div>
         <div className="mapa-ctl"><span className="label">Año</span>
-          <div className="flex flex-wrap gap-1.5">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)} title={aniosPrep.has(a) ? "Resultados preliminares (PREP), aún no son cómputo oficial" : undefined}>{a}{aniosPrep.has(a) && <span className="chip-prep">PREP</span>}</button>)}</div></div>
+          <div className="flex flex-wrap gap-1.5">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}</button>)}</div></div>
         <div className="mapa-ctl"><span className="label">Colorear por</span>
           <div className="flex flex-wrap items-center gap-2">
             <div className="seg" role="group" aria-label="Colorear por">{METRICAS.map((m) => <button key={m.id} type="button" aria-pressed={metrica === m.id} onClick={() => { setMetrica(m.id); setResaltar(null); }}>{m.t}</button>)}</div>
             {usaPartido && <select className="field" aria-label="Partido" style={{ width: "auto" }} value={partido} onChange={(e) => setPartido(e.target.value)}>{partidos.map((p) => <option key={p} value={p}>{p.toUpperCase()}</option>)}</select>}
             {metrica === "cambio" && <label className="text-sm inline-flex items-center gap-1.5" style={{ color: "var(--fg-soft)" }}>frente a
               <select className="field" style={{ width: "auto" }} value={comparar ?? ""} onChange={(e) => setComparar(Number(e.target.value))}>
-                {aniosComparar.map((a) => <option key={a} value={a}>{a}{aniosPrep.has(a) ? " · PREP" : ""}</option>)}</select></label>}
+                {aniosComparar.map((a) => <option key={a} value={a}>{a}</option>)}</select></label>}
             {metrica === "competitividad" && <span className="text-xs font-semibold" style={{ color: enf.color }}>{enfoque === "general" ? "Entre las dos primeras fuerzas" : `Desde ${enf.t}`}<Ayuda clave={enfoque === "general" ? "competitividad" : "competitividad_enfoque"} tam={12} /></span>}
           </div></div>
         <div className="mapa-ctl"><span className="label">Dibujar como</span>
@@ -177,7 +177,7 @@ export default function Estados() {
 
           <section className="material p-4 space-y-4" ref={detalle}>
             {sel !== null ? (
-              <DetalleEntidad nombre={nombres[sel]} u={porId.get(sel)} f={filas.find((x) => x.id_estado === sel)} anio={anio!} geo={!!entSel} esPrep={!!prep[sel]} onCerrar={() => setSel(null)} />
+              <DetalleEntidad nombre={nombres[sel]} u={porId.get(sel)} f={filas.find((x) => x.id_estado === sel)} anio={anio!} geo={!!entSel} onCerrar={() => setSel(null)} />
             ) : (
               <Lectura unidades={unidades} nombres={nombres} metrica={metrica} partido={partido} onSel={elegir} conGeo={(id) => !!conGeo(id)} />
             )}
@@ -264,7 +264,7 @@ function Lectura({ unidades, nombres, metrica, partido, onSel, conGeo }: {
   );
 }
 
-function DetalleEntidad({ nombre, u, f, anio, geo, esPrep, onCerrar }: { nombre: string; u: UnidadMapa | undefined; f: Fila | undefined; anio: number; geo: boolean; esPrep: boolean; onCerrar: () => void }) {
+function DetalleEntidad({ nombre, u, f, anio, geo, onCerrar }: { nombre: string; u: UnidadMapa | undefined; f: Fila | undefined; anio: number; geo: boolean; onCerrar: () => void }) {
   if (!u || !f) return (
     <div className="space-y-2"><h2 className="text-xl font-bold">{nombre}</h2><p className="text-sm" style={{ color: "var(--fg-mute)" }}>Sin elección este año.</p>
       <button className="chip" onClick={onCerrar}>Ver todas las entidades</button></div>);
@@ -273,7 +273,7 @@ function DetalleEntidad({ nombre, u, f, anio, geo, esPrep, onCerrar }: { nombre:
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-2">
-        <div><p className="label">{anio}{esPrep && <span className="chip-prep">PREP · preliminar</span>}</p><h2 className="text-2xl font-bold">{nombre}</h2></div>
+        <div><p className="label">{anio}</p><h2 className="text-2xl font-bold">{nombre}</h2></div>
         <button className="chip" onClick={onCerrar}>Ver todas</button>
       </div>
       <div className="grid grid-cols-3 gap-2 text-center">

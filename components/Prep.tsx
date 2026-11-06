@@ -11,10 +11,10 @@ export function usePrep() {
   return (eleccion: string, anio: number | null | undefined) => (cat?.prep ?? []).find((p) => p.eleccion === eleccion && p.anio === anio);
 }
 
-/** «PREP» junto al año, en chips y tablas. */
-export function MarcaPrep({ eleccion, anio }: { eleccion: string; anio: number | null | undefined }) {
-  const prep = usePrep()(eleccion, anio);
-  return prep ? <span className="chip-prep" title={`Resultados preliminares (PREP), corte ${prep.corte}: aún no son cómputo oficial`}>PREP</span> : null;
+/** Marca junto al año. Por decisión del usuario el año se muestra solo («2026», sin «PREP»): no dibuja nada.
+ *  El aviso de resultados preliminares (AvisoSiPrep) sigue apareciendo al elegir esa elección. */
+export function MarcaPrep(_: { eleccion: string; anio: number | null | undefined }) {
+  return null;
 }
 
 /** Aviso completo cuando la elección elegida es PREP. */

@@ -4,7 +4,6 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceA
 import { ArrowRight, Check } from "lucide-react";
 import { api, type Resultado } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
-import { usePrep } from "@/components/Prep";
 import { Cargando } from "@/components/Kpi";
 import { FiltroTerritorio, NAC, nombreTerr, type Terr } from "@/components/FiltroTerritorio";
 import { CARGOS, cargo as cargoDe, type CargoId } from "@/lib/cargos";
@@ -32,8 +31,7 @@ const colorDe = (k: string, l: Lectura) => (l === "bloque" ? BLOQUES[k]?.color ?
 export default function Historico() {
   const cat = useCatalogo();
   const [cargoId, setCargoId] = useState<CargoId>("presidente");
-  const prepDe = usePrep();
-  const et = (a: number) => (prepDe(cargoId, a) ? `${a} · PREP` : String(a));
+  const et = (a: number) => String(a); // el año va solo, sin «PREP» (decisión del usuario)
   const [terr, setTerr] = useState<Terr>(NAC);
   const [lectura, setLectura] = useState<Lectura>("candidatura");
   const [serie, setSerie] = useState<Resultado[] | null>(null);

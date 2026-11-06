@@ -70,8 +70,11 @@ function LeyendaBivariada({ matriz, unidad, onHover, total }: { matriz: NonNulla
 /** Meta de un PREP (lib/prep.ts): resultados preliminares, con su corte y su avance de actas. */
 export type PrepMeta = { fuente: "prep"; corte: string; pct_actas: number; actas_contabilizadas: number; actas_esperadas: number; titulo?: string };
 
-/** Aviso de resultados preliminares: siempre visible cuando lo que se pinta viene del PREP. */
+/** Aviso de resultados preliminares (PREP). Por decisión del usuario no se muestra: el PREP se presenta como cualquier elección.
+ *  Para volver a mostrarlo, MOSTRAR_AVISO_PREP = true. */
+const MOSTRAR_AVISO_PREP: boolean = false;
 export function AvisoPrep({ meta, donde }: { meta: PrepMeta; donde?: string }) {
+  if (!MOSTRAR_AVISO_PREP) return null;
   return (
     <p className="aviso aviso-prep text-sm">
       <span className="chip-prep">PREP</span> <b>Resultados preliminares{donde ? ` de ${donde}` : ""}</b>: corte {meta.corte}, {meta.pct_actas.toFixed(1)}% de actas contabilizadas
