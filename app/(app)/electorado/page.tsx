@@ -7,6 +7,7 @@ import { Territorio, type Sel } from "@/components/Territorio";
 import { Piramide } from "@/components/Piramide";
 import { Cargando, Kpi } from "@/components/Kpi";
 import { BotonLimpiar } from "@/components/FiltroTerritorio";
+import { PerfilCensoTerritorio } from "@/components/PerfilCensoTerritorio";
 import { fmt, pct } from "@/lib/format";
 
 type Resp = {
@@ -19,6 +20,13 @@ export default function Electorado() {
   const [sel, setSel] = useState<Sel>({ estado: 0, municipio: 0 });
   const [corte, setCorte] = useState("");
   const [d, setD] = useState<Resp | null>(null);
+  const [nomMun, setNomMun] = useState<Record<number, string>>({});
+  useEffect(() => {
+    if (!sel.estado) { setNomMun({}); return; }
+    api<{ municipios: { clave_inegi: number; nombre: string }[] }>(`/api/municipios?estado=${sel.estado}`).then((r) => setNomMun(Object.fromEntries(r.municipios.map((m) => [m.clave_inegi, m.nombre])))).catch(() => {});
+  }, [sel.estado]);
+  const nombreEstado = cat?.estados.find((e) => e.id_estado === sel.estado)?.nombre_corto ?? "";
+  const lugar = sel.municipio ? (nomMun[sel.municipio] ?? "Municipio") : sel.estado ? nombreEstado : "Nacional";
 
   useEffect(() => {
     setD(null);
@@ -70,6 +78,7 @@ export default function Electorado() {
           </section>
         </>
       )}
+      <PerfilCensoTerritorio estado={sel.estado} municipio={sel.municipio} lugar={lugar} nombreEstado={nombreEstado} />
     </>
   );
 }

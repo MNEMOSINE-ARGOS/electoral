@@ -6,8 +6,8 @@
 export const CAMPOS_CENSO = [
   "POBTOT", "POBFEM", "P_3YMAS", "P_5YMAS", "P_12YMAS", "P_12YMAS_F", "P_15YMAS", "P_18YMAS", "P_18A24", "P_60YMAS", "POB0_14",
   "PNACOE", "PRESOE15", "P3YM_HLI", "POB_AFRO", "PCON_DISC",
-  "P15YM_AN", "P15YM_SE", "P18YM_PB", "GRAPROES",
-  "PEA", "PEA_F", "PDESOCUP",
+  "P15YM_AN", "P15YM_SE", "P18YM_PB", "GRAPROES", "GRAPROES_F", "GRAPROES_M", "P_15YMAS_F", "P_15YMAS_M",
+  "PEA", "PEA_F", "PDESOCUP", "POCUPADA", "PE_INAC",
   "PSINDER", "PDER_IMSS", "PDER_ISTE", "PDER_ISTEE", "PDER_IMSSB",
   "PCATOLICA", "PRO_CRIEVA", "PSIN_RELIG",
   "TOTHOG", "HOGJEF_F",
@@ -26,6 +26,8 @@ export type Indicador = {
 
 export const INDICADORES: Indicador[] = [
   { k: "escolaridad", t: "Escolaridad promedio", grupo: "Educación", unidad: "años", num: ["GRAPROES"], den: "P_15YMAS", prom: true, bienestar: 1, que: "Años aprobados en promedio por la población de 15 años y más." },
+  { k: "escolaridad_mujeres", t: "Escolaridad de las mujeres", grupo: "Educación", unidad: "años", num: ["GRAPROES_F"], den: "P_15YMAS_F", prom: true, bienestar: 1, que: "Años aprobados en promedio por las mujeres de 15 años y más." },
+  { k: "escolaridad_hombres", t: "Escolaridad de los hombres", grupo: "Educación", unidad: "años", num: ["GRAPROES_M"], den: "P_15YMAS_M", prom: true, bienestar: 1, que: "Años aprobados en promedio por los hombres de 15 años y más." },
   { k: "posbasica", t: "Con prepa o más", grupo: "Educación", unidad: "%", num: ["P18YM_PB"], den: "P_18YMAS", bienestar: 1, que: "Personas de 18 años y más con al menos un grado de educación posbásica (bachillerato o más)." },
   { k: "analfabetismo", t: "Analfabetismo", grupo: "Educación", unidad: "%", num: ["P15YM_AN"], den: "P_15YMAS", bienestar: -1, que: "Personas de 15 años y más que no saben leer ni escribir." },
   { k: "sin_escolaridad", t: "Sin escolaridad", grupo: "Educación", unidad: "%", num: ["P15YM_SE"], den: "P_15YMAS", bienestar: -1, que: "Personas de 15 años y más sin ningún grado aprobado." },
@@ -41,6 +43,8 @@ export const INDICADORES: Indicador[] = [
   { k: "seguridad_social", t: "IMSS o ISSSTE", grupo: "Trabajo y salud", unidad: "%", num: ["PDER_IMSS", "PDER_ISTE", "PDER_ISTEE"], den: "POBTOT", bienestar: 1, que: "Población afiliada al IMSS, ISSSTE o ISSSTE estatal: aproxima el empleo formal (una persona puede tener más de una afiliación)." },
   { k: "imss_bienestar", t: "INSABI / IMSS-Bienestar", grupo: "Trabajo y salud", unidad: "%", num: ["PDER_IMSSB"], den: "POBTOT", que: "Población afiliada al INSABI o IMSS-Bienestar (servicios para quien no tiene seguridad social)." },
   { k: "participacion_economica", t: "Participación económica", grupo: "Trabajo y salud", unidad: "%", num: ["PEA"], den: "P_12YMAS", que: "Población de 12 años y más que trabaja o busca trabajo." },
+  { k: "ocupados", t: "Población ocupada", grupo: "Trabajo y salud", unidad: "%", num: ["POCUPADA"], den: "P_12YMAS", bienestar: 1, que: "Población de 12 años y más que trabajó en la semana de referencia del censo." },
+  { k: "inactivos", t: "No económicamente activa", grupo: "Trabajo y salud", unidad: "%", num: ["PE_INAC"], den: "P_12YMAS", que: "Población de 12 años y más que no trabaja ni busca trabajo (estudiantes, personas dedicadas al hogar, jubiladas…)." },
   { k: "participacion_mujeres", t: "Mujeres que trabajan o buscan", grupo: "Trabajo y salud", unidad: "%", num: ["PEA_F"], den: "P_12YMAS_F", que: "Mujeres de 12 años y más económicamente activas." },
   { k: "desocupacion", t: "Desocupación", grupo: "Trabajo y salud", unidad: "%", num: ["PDESOCUP"], den: "PEA", bienestar: -1, que: "Población económicamente activa que no tenía trabajo y lo buscaba." },
   { k: "jovenes", t: "Jóvenes de 18 a 24", grupo: "Población", unidad: "%", num: ["P_18A24"], den: "POBTOT", que: "Población de 18 a 24 años." },

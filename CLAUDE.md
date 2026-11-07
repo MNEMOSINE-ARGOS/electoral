@@ -58,7 +58,8 @@ app/(app)/            pantallas (cliente)
                       por edad y sexo, enlace a su lectura por sección)
   distritos/          distritos federales y locales, circunscripciones
   secciones/          lectura por sección, edad de la sección, tendencia frente al país, comparación y estrategia
-  electorado/         lista nominal por edad y sexo
+  electorado/         lista nominal por edad y sexo, y los indicadores del Censo 2020 del territorio (components/PerfilCensoTerritorio,
+                      API censo-territorio): escolaridad (también por sexo), ocupación, salud, vivienda, población y hogares, contra su estado y el país
   judicial/           elección judicial 2025 (votos por persona)
   usuarios/           solo superusuarios
   layout.tsx          barra superior (selector de enfoque, tema, cuenta) y barra lateral
@@ -77,6 +78,7 @@ lib/
   historico.ts        genealogía oficial de secciones (INE): destinos(), origenes(), hijasDe(); la usan la reconstrucción y la ficha de sección
   censo.ts            Censo 2020 por sección: CAMPOS_CENSO (claves del INEGI que se guardan), INDICADORES (numerador ÷ denominador, grupo, explicación),
                       valor() por sección y valorTerritorio() (Σ num ÷ Σ den, sin las secciones con celda protegida)
+  censoDatos.ts       lectura en servidor de data/censo2020 (seccionesCenso, resumenCenso con valores y absolutos, resumenNacional)
   consultas.ts        consultas reutilizables (resultados por territorio, GRUPOS_EDAD)
   db.ts               pool de pg (q<T>()) y tabla de usuarios
   auth.ts             cookie firmada (Web Crypto)        vigencia.ts  usuario activo + rol vigente (caché 30 s)
@@ -198,7 +200,7 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 - **Uso:** `<Ayuda clave="participacion" />`, o `<Ayuda titulo="…">contenido con los números de esa fila</Ayuda>` (así se explica «Votos posibles hoy» con la cuenta real de cada partido).
 - `Kpi` y las tarjetas `Dato` aceptan `ayuda="clave"`.
 - **Toda medida nueva lleva su entrada en el glosario y su «?».** Si cambia un cálculo, cambia su explicación.
-- Ya lo tienen: participación, votos emitidos, primera fuerza, margen, número efectivo de partidos, volatilidad, competitividad (general y con enfoque), lecturas (candidatura, boleta, alcance, bloque), piso, techo, rango, votos posibles hoy, con aliados y propios, cambio de ganador, continuidad, frente al país, relación, distancia, concurrentes, edad y sexo, electorado por edad del territorio (`edad_territorio`), elección reconstruida (`reconstruccion_distrital`), perfil del censo (`censo_seccion`), votos para ganar, potencial, el selector de enfoque y cada métrica de los mapas (`mapa_<métrica>`: ganador, competitividad, batalla, cambio, participación, partido, bivariado, y `mapa_entidad`).
+- Ya lo tienen: participación, votos emitidos, primera fuerza, margen, número efectivo de partidos, volatilidad, competitividad (general y con enfoque), lecturas (candidatura, boleta, alcance, bloque), piso, techo, rango, votos posibles hoy, con aliados y propios, cambio de ganador, continuidad, frente al país, relación, distancia, concurrentes, edad y sexo, electorado por edad del territorio (`edad_territorio`), elección reconstruida (`reconstruccion_distrital`), perfil del censo (`censo_seccion`, `censo_territorio`), votos para ganar, potencial, el selector de enfoque y cada métrica de los mapas (`mapa_<métrica>`: ganador, competitividad, batalla, cambio, participación, partido, bivariado, y `mapa_entidad`).
 - **Electorado por edad y sexo de un territorio** (`/api/perfil-edad`): corte con edad más reciente. País, estado, municipio y distrito federal vigente salen de `ln_edad_territorio`; distrito local, distrito de otra era y sección, de la suma de `ln_edad_seccion` (avisa cuántas secciones ya no están en el corte). El cambio «desde la elección» usa el corte más cercano anterior al 30 de junio del año y, si se armó por secciones, solo las secciones presentes en ambos cortes. Edad media con la marca de cada rango (65+ = 72).
 - **Gráfica de puntos de la lectura por sección** (`PerfilParticipacion`): la tarjeta de cada punto dice qué sección es, su lista nominal, su peso (lista ÷ lista de las secciones de la vista) y su perfil; al elegir una sección se siguen viendo todas y ella se resalta; tocar un punto la elige.
 - **Perfil socioeconómico por sección** (`components/PerfilCenso`, API `/api/censo?estado=`, en la lectura por sección): un indicador del Censo 2020 contra el voto del partido de enfoque, de un bloque o la participación; correlación, quintiles (el voto del grupo suma votos) y la brecha entre el quintil alto y el bajo. El censo usa las secciones de enero de 2021: las creadas después **no** reciben el perfil de su sección de origen (se cuentan y se avisa). Asociación territorial, no conducta individual (falacia ecológica, en la nota).
@@ -240,6 +242,7 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 | Sección 50338 (Coahuila) | tendencia «parcial»; piso y techo de presidencia (votos propios): Morena 358 (2018) a 500 (2024), votos posibles 466-500; diputaciones federales 2015-2024: PRI 236 a 456 |
 | Reconstrucción distrital, diputaciones federales, Coahuila 506 (Torreón) | 2021 reconstruida 150,248 votos (134,908 por sección idéntica + 15,340 por la genealogía del INE, 0 sin asignar); 2024 oficial 183,602 |
 | Censo 2020 por sección (`data/censo2020`) | Σ POBTOT = población oficial del Censo 2020 en las 32 entidades (país 126,014,024); país: escolaridad 9.7 años, analfabetismo 4.7%, sin servicio de salud 26.2%, lengua indígena 6.1%, católicos 77.7% (= INEGI) |
+| Censo por territorio (`/api/censo-territorio`) | país 126,014,024 hab., escolaridad 9.7 (mujeres 9.6, hombres 9.8 = INEGI); Torreón 720,834 (INEGI 720,848); Saltillo +0.6% y Monterrey −0.4% frente al INEGI (límites municipales del INE) |
 | Censo × voto, Torreón, diputados federales 2024, Morena y aliados | escolaridad r = −0.64; 52.1% en el quintil de menos escolaridad y 32.9% en el de más; 385 de 410 secciones con censo (2021: 390 de 390) |
 | Genealogía de secciones (`data/historico_secciones.json`) | 1,484 divisiones · 1,128 fusiones · 349 parciales; Coahuila 734 → 1762-1765 (2021) |
 | Electorado por edad, corte 2026-10-22 | país 101,728,768; Coahuila 2,501,241 (= suma de sus secciones); Torreón 568,905 |
