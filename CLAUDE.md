@@ -232,9 +232,11 @@ Todas se presentan en la interfaz como **lecturas analíticas, no oficiales**, c
 
 ## 8. Cifras de verificación (para probar que nada se rompió)
 
+**`bun scripts/verificar.ts`** comprueba estas cifras contra la base y las APIs reales en unos segundos (sale con código 1 si alguna falla). Si una cambia a propósito, actualiza el script y esta tabla.
+
 | Comprobación | Valor esperado |
 |---|---|
-| Presidencia 2024, nacional | 60,115,184 votos totales; participación 61.0% |
+| Presidencia 2024, nacional | 60,115,184 votos totales; participación 61.1% (61.08% = votos ÷ lista nominal de las actas, 98,427,054) |
 | Diputaciones federales 2024, distritos ganados | 256 Morena y aliados · 42 PAN-PRI-PRD (o PAN solo) · 1 MC (Jalisco 2) · 1 independiente (Michoacán 9) |
 | Mismo caso con enfoque | Morena 256 ganados, PAN 42, MC 1 (bastión + ventaja + competitiva + reñida gana) |
 | Distritos federales | suman exactamente el total del estado en 2018 y 2024 |
