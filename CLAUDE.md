@@ -55,7 +55,9 @@ app/(app)/            pantallas (cliente)
                       una entidad reemplaza el mapa nacional por el de la entidad (components/MapaEntidad, ruta «México › entidad › municipio»,
                       «Todo el país» regresa); tocar un municipio o distrito lo abre solo, sección por sección, con su panorama
                       (components/PanoramaTerritorio: cifras de la elección, secciones ganadas por fuerza, su historia en el cargo, electorado
-                      por edad y sexo, enlace a su lectura por sección)
+                      por edad y sexo, enlace a su lectura por sección). Años: solo quedan activos los que tienen votos por entidad en ese cargo
+                      (API anios-mapa: entidades con votos en agg_est_votos, más PREP); con una entidad abierta, solo los años en que ella votó;
+                      en cargos locales cada año dice cuántas entidades votaron
   distritos/          distritos federales y locales, circunscripciones
   secciones/          lectura por sección, edad de la sección, tendencia frente al país, comparación y estrategia
   electorado/         lista nominal por edad y sexo, y los indicadores del Censo 2020 del territorio (components/PerfilCensoTerritorio,

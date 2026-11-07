@@ -74,7 +74,21 @@ export default function Estados() {
   const anios = useMemo(() => [...(cat?.elecciones ?? []).filter((e) => e.eleccion === eleccion && !e.extraordinaria).map((e) => e.anio), ...aniosPrep]
     .filter((a, i, arr) => arr.indexOf(a) === i).sort((a, b) => b - a), [cat, eleccion, aniosPrep]);
   const [prep, setPrep] = useState<Record<number, PrepMeta>>({});
-  useEffect(() => { if (anios.length && (anio === null || !anios.includes(anio))) setAnio(anios[0]); }, [anios, anio]);
+  // Qué entidades votaron cada año (con votos por partido): solo esos años quedan activos; con una entidad abierta, solo los suyos
+  const [votaron, setVotaron] = useState<{ eleccion: string; m: Map<number, Set<number>> } | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    api<{ anios: { anio: number; estados: number[] }[] }>(`/api/anios-mapa?eleccion=${eleccion}`)
+      .then((d) => { if (vivo) setVotaron({ eleccion, m: new Map(d.anios.map((x) => [x.anio, new Set(x.estados)])) }); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [eleccion]);
+  const vot = votaron?.eleccion === eleccion ? votaron.m : null;
+  /** el año tiene datos en el país (y, con una entidad abierta, en esa entidad) */
+  const activo = (a: number, ent: number | null = null) => !vot || ((vot.get(a)?.size ?? 0) > 0 && (ent === null || vot.get(a)!.has(ent)));
+  useEffect(() => {
+    if (!anios.length) return;
+    if (anio === null || !anios.includes(anio) || !activo(anio)) setAnio(anios.find((a) => activo(a)) ?? anios[0]);
+  }, [anios, anio, vot]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (anio === null) return;
     setFilas(null);
@@ -146,7 +160,14 @@ export default function Estados() {
         <div className="mapa-ctl"><span className="label">Elección</span>
           <div className="flex flex-wrap gap-1.5">{tipos.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => setEleccion(t)}>{nombreEleccion[t] ?? t}</button>)}</div></div>
         <div className="mapa-ctl"><span className="label">Año</span>
-          <div className="flex flex-wrap gap-1.5">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}</button>)}</div></div>
+          <div className="flex flex-wrap gap-1.5">{anios.map((a) => {
+            const n = vot?.get(a)?.size ?? 0, ok = activo(a, sel);
+            const motivo = !activo(a) ? "Sin votos por entidad en la base para este año" : !ok && sel !== null ? `${nombres[sel]} no votó este cargo en ${a}` : undefined;
+            return <button key={a} className="chip" aria-pressed={a === anio} disabled={!ok} title={motivo ?? (local && vot ? `Votaron ${n} de 32 entidades` : undefined)}
+              style={!ok ? { opacity: 0.35, cursor: "not-allowed" } : undefined} onClick={() => setAnio(a)}>
+              {a}{local && vot && n > 0 && <small className="font-normal ml-1" style={{ color: "var(--fg-mute)" }}>{n}</small>}</button>;
+          })}</div></div>
+        {local && vot && <p className="text-xs" style={{ color: "var(--fg-mute)" }}>El número junto a cada año es cuántas entidades votaron ese cargo.{sel !== null ? ` Atenuados: años en que ${nombres[sel]} no votó.` : " Atenuados: años sin votos por entidad en la base."}</p>}
         <div className="mapa-ctl"><span className="label">Colorear por</span>
           <div className="flex flex-wrap items-center gap-2">
             <div className="seg" role="group" aria-label="Colorear por">{METRICAS.map((m) => <button key={m.id} type="button" aria-pressed={metrica === m.id} onClick={() => { setMetrica(m.id); setResaltar(null); }}>{m.t}</button>)}</div>
@@ -179,7 +200,8 @@ export default function Estados() {
       ) : entSel && anio !== null ? (
         <div className="material p-5 space-y-3 entra">
           <nav aria-label="Ruta del mapa" className="mapa-ruta"><button type="button" onClick={() => setSel(null)}>México</button><span aria-hidden>›</span><span aria-current="page">{entSel.nombre}</span></nav>
-          <p>{entSel.nombre} no tuvo elección de {(nombreEleccion[eleccion] ?? eleccion).toLowerCase()} en {anio}: elige otro año o cargo para verlo por dentro.</p>
+          <p>{entSel.nombre} no tuvo elección de {(nombreEleccion[eleccion] ?? eleccion).toLowerCase()} en {anio}.{vot && anios.some((a) => activo(a, entSel.id)) ? " Años en que sí votó:" : " Elige otro cargo."}</p>
+          {vot && <div className="flex flex-wrap gap-1.5">{anios.filter((a) => activo(a, entSel.id)).map((a) => <button key={a} type="button" className="chip" onClick={() => setAnio(a)}>{a}</button>)}</div>}
           <button type="button" className="btn btn-gris" onClick={() => setSel(null)}>Volver al país</button>
         </div>
       ) : (
