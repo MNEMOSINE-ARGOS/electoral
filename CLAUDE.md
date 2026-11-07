@@ -62,7 +62,7 @@ app/(app)/            pantallas (cliente)
 app/api/              rutas de datos (route handlers) y auth/
 components/           Buscador (autocompletado), Territorio, Piramide, PisoTecho, TendenciaSeccion, EdadSeccion,
                       Enfoque (contexto + selector + CeldaClase), EstrategiaSecciones, PerfilParticipacion, Waffle, Kpi,
-                      Plegable (detalle un nivel abajo), MiniGraficas (SVG; colores --serie-fed/--serie-loc validados para daltonismo),
+                      Plegable (detalle un nivel abajo), BotonLimpiar (en FiltroTerritorio: «Limpiar filtros» en toda pantalla con filtros; aparece solo si algo cambió y regresa la pantalla a su estado inicial), MiniGraficas (SVG; colores --serie-fed/--serie-loc validados para daltonismo),
                       MapaGeo (coroplético con zoom, tarjeta, etiquetas, círculos, bordes, rayado; `simple` para miniaturas),
                       MosaicoEstados, MapaPiezas (leyenda, matriz bivariada y ficha), useCapaMapa (métrica + vista → colores, círculos,
                       bordes, leyenda: lo comparten el mapa nacional, el de la entidad y el del municipio), MapaEntidad…

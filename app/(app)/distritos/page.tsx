@@ -10,6 +10,7 @@ import { BLOQUES, ENFOQUES, nombreCandidatura, porBloque, porCandidatura, type C
 import { CeldaClase, ResumenClases, useEnfoque } from "@/components/Enfoque";
 import { Ayuda } from "@/components/Ayuda";
 import { colorPartido, nombreEleccion } from "@/lib/partidos";
+import { BotonLimpiar } from "@/components/FiltroTerritorio";
 import { fmt, pct } from "@/lib/format";
 
 type Dist = {
@@ -69,6 +70,10 @@ export default function Distritos() {
   }), [hist]);
   const bloquesHist = useMemo(() => [...new Set(serieHist.flatMap((r) => Object.keys(r).filter((k) => k !== "anio")))], [serieHist]);
 
+  // «Limpiar filtros»: diputados federales, el año más reciente, todo el país, sin distrito abierto
+  const sucio = eleccion !== "diputados_federales" || !!estado || !!sel || (anio !== null && anios.length > 0 && anio !== anios[0]);
+  function limpiar() { setEleccion("diputados_federales"); setAnio(null); setEstado(0); setSel(null); setHist(null); }
+
   return (
     <>
       <header className="space-y-1">
@@ -77,6 +82,7 @@ export default function Distritos() {
         <p style={{ color: "var(--fg-soft)" }}>Cada cargo se lee en su demarcación: diputados federales por distrito (300) y, para la lista plurinominal, por circunscripción (5); diputados locales por distrito local; presidente por distrito solo como lectura territorial. El Senado se elige por entidad (ver «Resultados por cargo» o «Mapa nacional»).</p>
       </header>
       <section className="material p-4 space-y-3">
+        <div className="flex justify-end -mb-1"><BotonLimpiar visible={sucio} onClick={limpiar} /></div>
         <div className="flex flex-wrap gap-2">{CARGOS.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => { setEleccion(t); setAnio(null); }}>{nombreEleccion[t]}{t === "presidente" ? " (por distrito)" : ""}</button>)}</div>
         <div className="flex flex-wrap gap-2">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
         <AvisoSiPrep eleccion={eleccion} anio={anio} />

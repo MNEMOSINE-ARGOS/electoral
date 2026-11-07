@@ -6,6 +6,7 @@ import { useCatalogo } from "@/components/useCatalogo";
 import { Territorio, type Sel } from "@/components/Territorio";
 import { Piramide } from "@/components/Piramide";
 import { Cargando, Kpi } from "@/components/Kpi";
+import { BotonLimpiar } from "@/components/FiltroTerritorio";
 import { fmt, pct } from "@/lib/format";
 
 type Resp = {
@@ -38,6 +39,7 @@ export default function Electorado() {
       </header>
       <section className="material p-4 flex flex-wrap gap-4 items-end">
         {cat && <Territorio estados={cat.estados} valor={sel} onChange={setSel} />}
+        <span className="ml-auto self-center"><BotonLimpiar visible={!!(sel.estado || sel.municipio || corte)} onClick={() => { setSel({ estado: 0, municipio: 0 }); setCorte(""); }} /></span>
         <label className="space-y-1"><span className="label">Corte con edad</span>
           <select className="field" value={d?.corte ?? ""} onChange={(e) => setCorte(e.target.value)}>
             {(d?.cortes_con_edad ?? []).map((c) => <option key={c}>{c}</option>)}</select></label>

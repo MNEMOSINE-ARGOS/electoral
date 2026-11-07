@@ -6,6 +6,7 @@ import { useCatalogo } from "@/components/useCatalogo";
 import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
 import { Territorio, type Sel } from "@/components/Territorio";
 import { Buscador } from "@/components/Buscador";
+import { BotonLimpiar } from "@/components/FiltroTerritorio";
 import { EstrategiaSecciones } from "@/components/EstrategiaSecciones";
 import { PerfilParticipacion } from "@/components/PerfilParticipacion";
 import { PerfilCenso } from "@/components/PerfilCenso";
@@ -99,6 +100,13 @@ export default function Secciones() {
     return o;
   }, [r, filas, filtrado]);
   const totB = rf ? Object.values(rf.bloques).reduce((a, b) => a + b, 0) : 0;
+  // Estado inicial de la pantalla (Torreón, diputaciones federales, el año más reciente): «Limpiar filtros» regresa aquí
+  const sucio = eleccion !== "diputados_federales" || modo !== "municipio" || sel.estado !== 5 || sel.municipio !== 5035 || !!distrito || !!clase || !!secSel
+    || vista !== "lectura" || (anio !== null && anios.length > 0 && anio !== anios[0]);
+  function limpiar() {
+    setEleccion("diputados_federales"); setAnio(null); setModo("municipio"); setSel({ estado: 5, municipio: 5035 }); setDistrito(0);
+    setClase(""); setSecSel(0); setVista("lectura"); setFicha(null);
+  }
 
   return (
     <>
@@ -107,6 +115,7 @@ export default function Secciones() {
         <p style={{ color: "var(--fg-soft)" }}>Radiografía de cada sección dentro de un municipio o un distrito: quién ganó, por cuánto, qué tan reñida es, participación, composición por sexo y si cambió de ganador frente a la elección anterior del mismo cargo.</p>
       </header>
       <section className="material p-4 space-y-3">
+        <div className="flex justify-end -mb-1"><BotonLimpiar visible={sucio} onClick={limpiar} /></div>
         <div className="flex flex-wrap gap-2">{CARGOS.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => { setEleccion(t); setAnio(null); if (t.startsWith("diputados") === false) setModo("municipio"); }}>{nombreEleccion[t] ?? t}</button>)}</div>
         <div className="flex flex-wrap gap-2">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
         <AvisoSiPrep eleccion={eleccion} anio={anio} />

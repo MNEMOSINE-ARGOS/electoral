@@ -7,6 +7,7 @@ import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
 import { Territorio, type Sel } from "@/components/Territorio";
 import { Cargando } from "@/components/Kpi";
 import { colorPartido, nombreEleccion } from "@/lib/partidos";
+import { BotonLimpiar } from "@/components/FiltroTerritorio";
 import { fmt, pct } from "@/lib/format";
 
 type Serie = { clave: string; nivel: string; id: number; anio: number; nombre: string; resultado: Resultado | null };
@@ -49,6 +50,10 @@ export default function Comparar() {
     return [...t.entries()].filter(([, v]) => v >= 5).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([p]) => p);
   }, [series]);
 
+  // «Limpiar filtros»: vuelve a alcaldes, el año más reciente, sin territorio ni series
+  const sucio = eleccion !== "alcaldes" || !!sel.estado || !!sel.municipio || specs.length > 0 || !!busca || (anio !== null && aniosU.length > 0 && anio !== aniosU[0]);
+  function limpiar() { setEleccion("alcaldes"); setAnio(null); setSel({ estado: 0, municipio: 0 }); setSpecs([]); setSeries([]); setBusca(""); setHallados([]); }
+
   return (
     <>
       <header className="space-y-1">
@@ -56,6 +61,7 @@ export default function Comparar() {
         <p style={{ color: "var(--fg-soft)" }}>Compara el mismo tipo de elección (alcaldes con alcaldes, gobernador con gobernador…) entre municipios, estados o años distintos. Hasta 6 series.</p>
       </header>
       <section className="material p-4 space-y-4">
+        <div className="flex justify-end -mb-2"><BotonLimpiar visible={sucio} onClick={limpiar} /></div>
         <div className="flex flex-wrap gap-2">{tipos.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => setEleccion(t)}>{nombreEleccion[t] ?? t}</button>)}</div>
         <div className="flex flex-wrap gap-2">{aniosU.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
         <AvisoSiPrep eleccion={eleccion} anio={anio} />

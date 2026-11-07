@@ -16,6 +16,7 @@ import { ENFOQUES, ETIQ_CLASE, indicadores, nombreCandidatura, porCandidatura, c
 import { METRICAS, VISTAS, cambioDe, partidosPresentes, type EntidadGeo, type Metrica, type UnidadMapa, type Vista } from "@/lib/mapa";
 import { useCapaMapa } from "@/components/useCapaMapa";
 import { MarcaPrep } from "@/components/Prep";
+import { BotonLimpiar } from "@/components/FiltroTerritorio";
 import { AvisoPrep, type PrepMeta } from "@/components/MapaPiezas";
 
 // Mapa nacional: UNA elección (cargo + año) por entidad. «Colorear por» (lib/mapa METRICAS): quién ganó, qué tan reñido, campo de
@@ -121,6 +122,13 @@ export default function Estados() {
   const met = METRICAS.find((m) => m.id === metrica)!;
   const desc = met.d;
   const usaPartido = metrica === "partido" || metrica === "bivariado" || metrica === "cambio";
+  // «Limpiar filtros»: presidencia, el año más reciente, quién ganó, por áreas, en mapa, sin entidad abierta
+  const sucio = eleccion !== "presidente" || metrica !== "ganador" || partido !== "morena" || forma !== "mapa" || vista !== "areas" || sel !== null
+    || (anio !== null && anios.length > 0 && anio !== anios[0]);
+  function limpiar() {
+    setEleccion("presidente"); setAnio(null); setMetrica("ganador"); setPartido("morena"); setForma("mapa"); setVista("areas");
+    setComparar(null); setSel(null); setResaltar(null);
+  }
 
   return (
     <>
@@ -131,6 +139,7 @@ export default function Estados() {
       </header>
 
       <section className="material p-4 space-y-3">
+        <div className="flex justify-end -mb-1"><BotonLimpiar visible={sucio} onClick={limpiar} /></div>
         <div className="mapa-ctl"><span className="label">Elección</span>
           <div className="flex flex-wrap gap-1.5">{tipos.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => setEleccion(t)}>{nombreEleccion[t] ?? t}</button>)}</div></div>
         <div className="mapa-ctl"><span className="label">Año</span>
