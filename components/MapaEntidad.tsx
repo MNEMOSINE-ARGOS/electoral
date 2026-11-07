@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronRight, ArrowLeft, MousePointerClick } from "lucide-react";
 import { api } from "@/lib/api";
 import { type EntidadGeo, type Metrica, type UnidadMapa, type Vista } from "@/lib/mapa";
@@ -12,6 +12,7 @@ import { FichaUnidad, LeyendaMapa, AvisoPrep, type PrepMeta } from "@/components
 import { useCapaMapa } from "@/components/useCapaMapa";
 import { MarcaPrep } from "@/components/Prep";
 import { Ayuda } from "@/components/Ayuda";
+import { PanoramaTerritorio } from "@/components/PanoramaTerritorio";
 
 // Mapa de UNA entidad con cartografía del INE (public/geo/<id>/): municipios, distritos federales, distritos locales y secciones.
 // Recorrido: entidad → (toca un municipio o distrito) → solo sus secciones, con su tabla, para el análisis fino.
@@ -62,8 +63,10 @@ const porIdDe = (r: RespMapa | null) => (r ? new Map(r.unidades.map((u) => [u.id
 /** Desde qué año vale la cartografía de un nivel (los distritos cambian; municipios y secciones no se limitan aquí). */
 const vigenteDesde = (ent: EntidadGeo, nivel: Nivel) => nivel === "distrito" ? ent.df_desde : nivel === "distrito_local" ? ent.dl_desde : null;
 
-export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comparar }: {
+export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comparar, onSalir, resumen }: {
   ent: EntidadGeo; eleccion: string; anio: number; metrica: Metrica; partido: string; vista: Vista; comparar: number | null;
+  /** el mapa se abrió en el lugar del nacional: «México» en la ruta regresa a él */ onSalir?: () => void;
+  /** resumen de la entidad (lo arma el mapa nacional) que se ve a la derecha mientras no se pase el cursor por el mapa */ resumen?: ReactNode;
 }) {
   const { enfoque } = useEnfoque();
   const niveles = useMemo(() => {
@@ -129,7 +132,7 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comp
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
           <nav aria-label="Ruta del mapa" className="mapa-ruta">
-            <span className="label">Cartografía del INE</span>
+            {onSalir ? <button type="button" onClick={onSalir}>México</button> : <span className="label">Cartografía del INE</span>}
             <ChevronRight size={12} aria-hidden />
             {foco ? <button type="button" onClick={() => setFoco(null)}>{ent.nombre}</button> : <span aria-current="page">{ent.nombre}</span>}
             {foco && <><ChevronRight size={12} aria-hidden /><span aria-current="page">{foco.nombre}</span></>}
@@ -142,9 +145,12 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comp
         {foco ? (
           <button type="button" className="btn btn-gris" onClick={() => setFoco(null)}><ArrowLeft size={15} />Volver a {ent.nombre}</button>
         ) : (
+          <div className="flex flex-wrap items-center gap-2">
+          {onSalir && <button type="button" className="btn btn-gris" onClick={onSalir}><ArrowLeft size={15} />Todo el país</button>}
           <div className="seg" role="group" aria-label="Nivel del mapa">
             {niveles.map((n) => <button key={n.id} type="button" aria-pressed={nivel === n.id} disabled={!!n.no} title={n.no} onClick={() => setNivel(n.id)}
               style={n.no ? { opacity: 0.45, cursor: "not-allowed" } : undefined}>{n.t}</button>)}
+          </div>
           </div>
         )}
       </div>
@@ -178,7 +184,10 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comp
                       <button type="button" className="chip" onClick={() => setSel(null)}>Quitar selección</button>
                     </div>
                   ) : (
-                    <p className="text-sm" style={{ color: "var(--fg-soft)" }}>Pasa el cursor sobre el mapa para ver cada {UNIDAD[nivel][0]}{abreFoco ? "." : "; tócala para fijarla aquí."}</p>
+                    <>
+                      {resumen}
+                      <p className="text-sm" style={{ color: "var(--fg-soft)" }}>Pasa el cursor sobre el mapa para ver cada {UNIDAD[nivel][0]}{abreFoco ? "." : "; tócala para fijarla aquí."}</p>
+                    </>
                   )}
                   <LeyendaMapa {...capa.ley} unidad={UNIDAD[nivel]} onHover={setResaltar}
                     titulo={metrica === "competitividad" ? (enfoque === "general" ? "Competitividad" : `Desde ${enfoque.toUpperCase()}`) : undefined} />
@@ -398,6 +407,8 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido, vista, c
           </div>
         </div>
       )}
+
+      <PanoramaTerritorio ent={ent} foco={foco} padre={padre} secciones={datos} eleccion={eleccion} anio={anio} />
 
       {limite && porGrupo.length > 0 && (
         <div className="space-y-2">

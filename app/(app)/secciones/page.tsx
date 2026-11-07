@@ -60,6 +60,7 @@ export default function Secciones() {
   // Parámetros de enlace (desde «Distritos»)
   useEffect(() => {
     const p = new URLSearchParams(location.search);
+    if (p.get("municipio") && p.get("estado")) { setEleccion(p.get("eleccion") || "diputados_federales"); setModo("municipio"); setSel({ estado: Number(p.get("estado")), municipio: Number(p.get("municipio")) }); if (p.get("anio")) setAnio(Number(p.get("anio"))); }
     if (p.get("distrito")) { setModo("distrito"); setEleccion(p.get("eleccion") || "diputados_federales"); setSel({ estado: Number(p.get("estado")), municipio: 0 }); setDistrito(Number(p.get("distrito"))); setAnio(Number(p.get("anio"))); }
   }, []);
   const anios = useMemo(() => (cat?.elecciones ?? []).filter((e) => e.eleccion === eleccion && !e.extraordinaria && e.anio >= (local || eleccion === "gobernador" || eleccion === "alcaldes" ? 2015 : 1994)).map((e) => e.anio).filter((a, i, arr) => arr.indexOf(a) === i).sort((a, b) => b - a), [cat, eleccion, local]);

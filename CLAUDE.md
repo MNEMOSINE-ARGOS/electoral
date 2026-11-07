@@ -51,8 +51,11 @@ app/(app)/            pantallas (cliente)
                       (enfoque; borde en ±5), cambio frente a otra elección del cargo (sin comparación = rayado), participación, fuerza
                       de un partido, fuerza × participación (bivariado 3×3 por terciles). «Dibujar como» (VISTAS): áreas, círculos
                       (área ∝ votos), objetivos (enfoque: círculo = votos que faltan donde pierde por ≤ 15) e historia (últimas 4
-                      elecciones). Mapa o mosaico; leyenda que resalta; frases «lo que dice el mapa». Las entidades con cartografía
-                      (public/geo/entidades.json) se abren por municipio, distrito y sección con lo mismo (components/MapaEntidad)
+                      elecciones). Mapa o mosaico; leyenda que resalta; frases «lo que dice el mapa». Recorrido EN EL MISMO ESPACIO: tocar
+                      una entidad reemplaza el mapa nacional por el de la entidad (components/MapaEntidad, ruta «México › entidad › municipio»,
+                      «Todo el país» regresa); tocar un municipio o distrito lo abre solo, sección por sección, con su panorama
+                      (components/PanoramaTerritorio: cifras de la elección, secciones ganadas por fuerza, su historia en el cargo, electorado
+                      por edad y sexo, enlace a su lectura por sección)
   distritos/          distritos federales y locales, circunscripciones
   secciones/          lectura por sección, edad de la sección, tendencia frente al país, comparación y estrategia
   electorado/         lista nominal por edad y sexo

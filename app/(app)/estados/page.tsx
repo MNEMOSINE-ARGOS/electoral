@@ -114,7 +114,10 @@ export default function Estados() {
   const local = !FEDERALES.has(eleccion);
   const enf = ENFOQUES.find((e) => e.id === enfoque)!;
   const conGeo = (id: number) => geoEnt.find((g) => g.id === id);
-  const elegir = (id: number | null) => { setSel(id); };
+  const elegir = (id: number | null) => {
+    setSel(id); setResaltar(null);
+    if (id !== null) requestAnimationFrame(() => detalle.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
   const entSel = sel !== null ? conGeo(sel) : undefined;
   const tip = (id: number) => <FichaUnidad nombre={nombres[id] ?? String(id)} u={porId.get(id)} metrica={metrica} partido={partido}
     prev={prev?.get(id) ?? null} comparar={comparar !== null ? String(comparar) : undefined}
@@ -135,7 +138,7 @@ export default function Estados() {
       <header className="space-y-1.5">
         <p className="label">Mapa nacional</p>
         <h1 className="text-3xl md:text-[2.6rem] font-bold leading-tight">{nombreEleccion[eleccion] ?? eleccion} {anio ?? ""}: el país por entidad</h1>
-        <p className="max-w-3xl" style={{ color: "var(--fg-soft)" }}>Elige una elección y cómo colorear. Pasa el cursor sobre una entidad para ver sus números, o sobre la leyenda para encontrar las que comparten color. {geoEnt.length > 0 && <>Las entidades marcadas con <MapPinned size={14} className="inline -mt-0.5" style={{ color: "var(--azul)" }} /> se abren por municipio, distrito y sección.</>}</p>
+        <p className="max-w-3xl" style={{ color: "var(--fg-soft)" }}>Elige una elección y cómo colorear. Pasa el cursor sobre una entidad para ver sus números, o sobre la leyenda para encontrar las que comparten color. {geoEnt.length > 0 && <><b>Toca una entidad y se abre aquí mismo</b> por municipio, distrito y sección; toca un municipio y verás solo ese municipio, con todos sus datos. La ruta de arriba del mapa te regresa.</>}</p>
       </header>
 
       <section className="material p-4 space-y-3">
@@ -164,8 +167,23 @@ export default function Estados() {
         <p className="aviso text-sm">{nombreEleccion[eleccion] ?? eleccion} es un cargo local: en {anio} votaron <b>{unidades.length} de 32</b> entidades; las demás aparecen en gris. La suma «nacional» de un cargo local no se compara entre años.</p>
       )}
 
-      {!filas ? <Cargando alto={480} /> : unidades.length === 0 ? <p className="material p-6">Sin datos por entidad para esta elección.</p> : (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+      <div ref={detalle} className="scroll-mt-20">
+      {!filas ? <Cargando alto={480} /> : unidades.length === 0 ? <p className="material p-6">Sin datos por entidad para esta elección.</p>
+      : entSel && anio !== null && porId.has(entSel.id) ? (
+        // La entidad se abre EN EL LUGAR del mapa nacional; «México» en su ruta (o «Todo el país») regresa
+        <div className="entra" key={entSel.id}>
+          <MapaEntidad ent={entSel} eleccion={eleccion} anio={anio} metrica={metrica} partido={partido} vista={vista} comparar={metrica === "cambio" ? comparar : null}
+            onSalir={() => setSel(null)}
+            resumen={<DetalleEntidad nombre={nombres[entSel.id]} u={porId.get(entSel.id)} f={filas.find((x) => x.id_estado === entSel.id)} anio={anio} geo={false} />} />
+        </div>
+      ) : entSel && anio !== null ? (
+        <div className="material p-5 space-y-3 entra">
+          <nav aria-label="Ruta del mapa" className="mapa-ruta"><button type="button" onClick={() => setSel(null)}>México</button><span aria-hidden>›</span><span aria-current="page">{entSel.nombre}</span></nav>
+          <p>{entSel.nombre} no tuvo elección de {(nombreEleccion[eleccion] ?? eleccion).toLowerCase()} en {anio}: elige otro año o cargo para verlo por dentro.</p>
+          <button type="button" className="btn btn-gris" onClick={() => setSel(null)}>Volver al país</button>
+        </div>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] entra">
           <section className="material p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="font-bold">{vista === "objetivos" ? `Objetivos de ${enf.t}` : met.t}{usaPartido ? ` · ${partido.toUpperCase()}` : ""}{metrica === "batalla" && enfoque !== "general" ? ` · ${enf.t}` : ""}{metrica === "cambio" && comparar !== null ? ` · ${comparar} → ${anio}` : ""}</p>
@@ -184,26 +202,16 @@ export default function Estados() {
               titulo={vista === "objetivos" ? `Desde ${enf.t}` : metrica === "ganador" ? "Entidades ganadas · pasa el cursor para ubicarlas" : metrica === "competitividad" || metrica === "batalla" ? (enfoque === "general" ? "Competitividad" : `Desde ${enf.t}`) : undefined} />}
           </section>
 
-          <section className="material p-4 space-y-4" ref={detalle}>
+          <section className="material p-4 space-y-4">
             {sel !== null ? (
-              <DetalleEntidad nombre={nombres[sel]} u={porId.get(sel)} f={filas.find((x) => x.id_estado === sel)} anio={anio!} geo={!!entSel} onCerrar={() => setSel(null)} />
+              <DetalleEntidad nombre={nombres[sel]} u={porId.get(sel)} f={filas.find((x) => x.id_estado === sel)} anio={anio!} geo={false} onCerrar={() => setSel(null)} />
             ) : (
               <Lectura unidades={unidades} nombres={nombres} metrica={metrica} partido={partido} onSel={elegir} conGeo={(id) => !!conGeo(id)} />
-            )}
-            {geoEnt.length > 0 && (
-              <div className="space-y-1.5 pt-1">
-                <p className="label">Con mapa por municipio, distrito y sección</p>
-                <div className="flex flex-wrap gap-1.5">{geoEnt.map((g) => (
-                  <button key={g.id} type="button" className="chip" aria-pressed={sel === g.id} onClick={() => elegir(sel === g.id ? null : g.id)}>
-                    <MapPinned size={13} style={{ color: "var(--azul)" }} />{g.nombre}</button>))}</div>
-              </div>
             )}
           </section>
         </div>
       )}
-
-      {entSel && anio !== null && porId.has(entSel.id) && <MapaEntidad ent={entSel} eleccion={eleccion} anio={anio} metrica={metrica} partido={partido} vista={vista} comparar={metrica === "cambio" ? comparar : null} />}
-      {entSel && anio !== null && !porId.has(entSel.id) && <p className="material p-4 text-sm">{entSel.nombre} no tuvo elección de {(nombreEleccion[eleccion] ?? eleccion).toLowerCase()} en {anio}: elige otro año o cargo para ver su mapa por dentro.</p>}
+      </div>
 
       <section className="material p-4">
         <p className="label pb-1">Cómo leer este mapa</p>
@@ -273,17 +281,17 @@ function Lectura({ unidades, nombres, metrica, partido, onSel, conGeo }: {
   );
 }
 
-function DetalleEntidad({ nombre, u, f, anio, geo, onCerrar }: { nombre: string; u: UnidadMapa | undefined; f: Fila | undefined; anio: number; geo: boolean; onCerrar: () => void }) {
+function DetalleEntidad({ nombre, u, f, anio, geo, onCerrar }: { nombre: string; u: UnidadMapa | undefined; f: Fila | undefined; anio: number; geo: boolean; onCerrar?: () => void }) {
   if (!u || !f) return (
     <div className="space-y-2"><h2 className="text-xl font-bold">{nombre}</h2><p className="text-sm" style={{ color: "var(--fg-mute)" }}>Sin elección este año.</p>
-      <button className="chip" onClick={onCerrar}>Ver todas las entidades</button></div>);
+      {onCerrar && <button className="chip" onClick={onCerrar}>Ver todas las entidades</button>}</div>);
   const cand = Object.entries(porCandidatura(f.partidos)).sort((a, b) => b[1] - a[1]);
   const base = cand.reduce((a, [, v]) => a + v, 0);
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div><p className="label">{anio}</p><h2 className="text-2xl font-bold">{nombre}</h2></div>
-        <button className="chip" onClick={onCerrar}>Ver todas</button>
+        {onCerrar && <button className="chip" onClick={onCerrar}>Ver todas</button>}
       </div>
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="mapa-kpi"><small>Margen<Ayuda clave="margen" tam={11} /></small><b className="num">{u.margen?.toFixed(1)}</b><small>puntos</small></div>
