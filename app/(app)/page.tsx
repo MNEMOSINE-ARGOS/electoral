@@ -2,10 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CartesianGrid, Legend, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ChevronRight, MapPin, Scale, Search } from "lucide-react";
-import { Buscador, type Opcion } from "@/components/Buscador";
+import { ChevronRight, Scale, Search } from "lucide-react";
 import { SeccionesInline } from "@/components/SeccionesInline";
-import { BotonLimpiar } from "@/components/FiltroTerritorio";
+import { ElegirDetalle, FiltroTerritorio, NAC, SIN_FILTRO, filtroDe, territorios, type FiltroT, type Terr } from "@/components/FiltroTerritorio";
+import { LadoALadoResultados } from "@/components/LadoALadoResultados";
 import { api, type Resultado } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
 import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
@@ -26,11 +26,8 @@ type Unidad = {
   ganador_bloque: string | null; clase: Clase | null; margen_enfoque: number | null; p_enfoque: number | null; confianza: string | null; top: Record<string, number>; votos_partidos: number;
 };
 type Nivel = "estado" | "distrito" | "distrito_local" | "municipio";
-type Terr = { estado: number; distrito: number; municipio: number; seccion: number; nombre: string; ctx: string };
 type Lectura = "candidatura" | "boleta" | "alcance" | "bloque";
 
-const NAC: Terr = { estado: 0, distrito: 0, municipio: 0, seccion: 0, nombre: "", ctx: "" };
-const CON_DISTRITO = ["presidente", "senado", "diputados_federales", "diputados_locales_mr"];
 
 export default function ResultadosPorCargo() {
   const cat = useCatalogo();
@@ -39,72 +36,54 @@ export default function ResultadosPorCargo() {
   const clases = clasesDe(enfoque);
   const [cargoId, setCargoId] = useState<CargoId>("presidente");
   const [anio, setAnio] = useState<number | null>(null);
-  const [terr, setTerr] = useState<Terr>(NAC);
+  const [filtro_t, setFiltroT] = useState<FiltroT>(SIN_FILTRO);
+  const [iDet, setIDet] = useState(0);
+  const ts = useMemo(() => territorios(filtro_t, cat?.estados ?? []), [filtro_t, cat]);
+  // Con varios territorios, las secciones de detalle (resultado, edad, piso y techo, unidades, trayectoria) son del que se elija
+  const terr: Terr = ts[Math.min(iDet, ts.length - 1)];
+  const setTerr = (t: Terr) => { setFiltroT(filtroDe(t)); setIDet(0); };
   const [lectura, setLectura] = useState<Lectura>("candidatura");
   const [serie, setSerie] = useState<Resultado[] | null>(null);
   const [unidades, setUnidades] = useState<{ nivel: Nivel; unidades: Unidad[] } | null>(null);
   const [filtro, setFiltro] = useState("");
   const [orden, setOrden] = useState<"id" | "margen" | "participacion">("id");
   const c = cargoDe(cargoId);
-  const [optMun, setOptMun] = useState<Opcion[]>([]);
-  const [optDis, setOptDis] = useState<Opcion[]>([]);
-  const [optSec, setOptSec] = useState<Opcion[]>([]);
 
+  const estEleg = [...new Set(ts.map((t) => t.estado).filter(Boolean))].sort((a, b) => a - b).join(",");
   const [aniosTerr, setAniosTerr] = useState<{ clave: string; anios: number[] } | null>(null);
   const anios = useMemo(() => {
-    // En una entidad, solo los años en que ESA entidad votó ese cargo (los cargos locales tienen calendarios propios)
-    if (terr.estado && aniosTerr?.clave === `${cargoId}-${terr.estado}`) return aniosTerr.anios;
+    // Con entidades elegidas, solo los años en que votó alguna de ELLAS ese cargo (los cargos locales tienen calendarios propios)
+    if (estEleg && aniosTerr?.clave === `${cargoId}-${estEleg}`) return aniosTerr.anios;
     const s = new Set((cat?.elecciones ?? []).filter((e) => e.eleccion === cargoId && !e.extraordinaria).map((e) => e.anio));
     return [...s].sort((a, b) => b - a);
-  }, [cat, cargoId, terr.estado, aniosTerr]);
+  }, [cat, cargoId, estEleg, aniosTerr]);
   useEffect(() => {
-    if (!terr.estado) { setAniosTerr(null); return; }
-    api<{ elecciones: Resultado[] }>(`/api/presidencial?eleccion=${cargoId}&estado=${terr.estado}`).then((d) =>
-      setAniosTerr({ clave: `${cargoId}-${terr.estado}`, anios: [...new Set(d.elecciones.filter((x) => !x.extraordinaria && Object.keys(x.partidos).length).map((x) => x.anio))].sort((a, b) => b - a) }));
-  }, [cargoId, terr.estado]);
+    if (!estEleg) { setAniosTerr(null); return; }
+    let vivo = true;
+    Promise.all(estEleg.split(",").map((e) => api<{ elecciones: Resultado[] }>(`/api/presidencial?eleccion=${cargoId}&estado=${e}`))).then((rs) => vivo &&
+      setAniosTerr({ clave: `${cargoId}-${estEleg}`, anios: [...new Set(rs.flatMap((d) => d.elecciones).filter((x) => !x.extraordinaria && Object.keys(x.partidos).length).map((x) => x.anio))].sort((a, b) => b - a) }));
+    return () => { vivo = false; };
+  }, [cargoId, estEleg]);
   useEffect(() => { if (anios.length && (anio === null || !anios.includes(anio))) setAnio(anios[0]); }, [anios, anio]);
-
-  // Opciones de los buscadores de territorio (de la elección elegida: cargo + año)
-  useEffect(() => {
-    if (!terr.estado) { setOptMun([]); return; }
-    api<{ municipios: { clave_inegi: number; nombre: string }[] }>(`/api/municipios?estado=${terr.estado}`).then((d) => setOptMun(d.municipios.map((m) => ({ valor: m.clave_inegi, etiqueta: m.nombre }))));
-  }, [terr.estado]);
-  useEffect(() => {
-    if (!terr.estado || !anio || !CON_DISTRITO.includes(cargoId)) { setOptDis([]); return; }
-    api<{ opciones: Opcion[] }>(`/api/opciones?tipo=distrito&eleccion=${cargoId}&anio=${anio}&estado=${terr.estado}`).then((d) => {
-      setOptDis(d.opciones);
-      // Limpieza automática: el distrito elegido no existe en esta elección (otro mapa distrital u otro año)
-      setTerr((t) => (t.distrito && !d.opciones.some((o) => o.valor === t.distrito) ? { ...NAC, estado: t.estado } : t));
-    });
-  }, [terr.estado, anio, cargoId]);
-  useEffect(() => {
-    if (!terr.estado || !anio) { setOptSec([]); return; }
-    const ambito = terr.municipio ? `&municipio=${terr.municipio}` : terr.distrito ? `&distrito=${terr.distrito}` : "";
-    api<{ opciones: Opcion[] }>(`/api/opciones?tipo=seccion&eleccion=${cargoId}&anio=${anio}&estado=${terr.estado}${ambito}`).then((d) => {
-      setOptSec(d.opciones);
-      // Limpieza automática: la sección elegida no existe en esta elección (reseccionamiento u otro año)
-      setTerr((t) => (t.seccion && d.opciones.length && !d.opciones.some((o) => o.valor === t.seccion) ? { ...t, seccion: 0, ctx: "" } : t));
-    });
-  }, [terr.estado, terr.municipio, terr.distrito, anio, cargoId]);
 
   // Serie del cargo en el territorio (una entrada por año)
   useEffect(() => {
     setSerie(null);
     const qs = new URLSearchParams({ eleccion: cargoId, estado: String(terr.estado), municipio: String(terr.municipio), distrito: String(terr.distrito), seccion: String(terr.seccion), anio_ref: String(anio ?? 0) });
     api<{ elecciones: Resultado[] }>(`/api/presidencial?${qs}`).then((d) => setSerie(d.elecciones)).catch(() => setSerie([]));
-  }, [cargoId, terr, anio]);
+  }, [cargoId, terr.estado, terr.municipio, terr.distrito, terr.seccion, anio]); // eslint-disable-line react-hooks/exhaustive-deps
   // Unidades de elección del año
   useEffect(() => {
     if (anio === null || terr.distrito || terr.municipio || terr.seccion) { setUnidades(null); return; }
     setUnidades(null);
     api<{ nivel: Nivel; unidades: Unidad[] }>(`/api/unidades?cargo=${cargoId}&anio=${anio}&estado=${terr.estado}&enfoque=${enfoque}`).then(setUnidades);
-  }, [cargoId, anio, terr, enfoque]);
+  }, [cargoId, anio, terr.estado, terr.municipio, terr.distrito, terr.seccion, enfoque]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const r = serie?.find((x) => x.anio === anio && !x.extraordinaria) ?? null;
   const nombreEstado = (id: number) => cat?.estados.find((e) => e.id_estado === id)?.nombre_corto ?? "";
   const lugar = terr.seccion ? `Sección ${terr.seccion % 10000}${terr.ctx ? ` · ${terr.ctx}` : ""}` : terr.municipio ? terr.nombre : terr.distrito ? `Distrito ${terr.nombre}` : terr.estado ? nombreEstado(terr.estado) : "Nacional";
 
-  function elegirCargo(id: CargoId) { setCargoId(id); setTerr(NAC); setAnio(null); setFiltro(""); }
+  function elegirCargo(id: CargoId) { setCargoId(id); setFiltroT(SIN_FILTRO); setIDet(0); setAnio(null); setFiltro(""); }
   function entrar(u: Unidad, nivel: Nivel) {
     if (nivel === "estado") setTerr({ ...NAC, estado: u.id, nombre: u.nombre });
     else if (nivel === "municipio") setTerr({ ...NAC, estado: u.id_estado, municipio: u.id, nombre: u.nombre });
@@ -208,33 +187,11 @@ export default function ResultadosPorCargo() {
           {anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={cargoId} anio={a} /></button>)}
         </div>
         <AvisoSiPrep eleccion={cargoId} anio={anio} />
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="label flex items-center gap-1.5"><MapPin size={13} /> Territorio</p>
-            <BotonLimpiar visible={!!(terr.estado || terr.distrito || terr.municipio || terr.seccion)} onClick={() => { setTerr(NAC); setFiltro(""); }} />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-            <Buscador etiqueta="Entidad" todos="Todo el país" valor={terr.estado} ancho="min-w-0"
-              opciones={(cat?.estados ?? []).map((e) => ({ valor: e.id_estado, etiqueta: e.nombre_corto, sub: e.abreviatura }))}
-              onChange={(v, o) => setTerr({ ...NAC, estado: v, nombre: o?.etiqueta ?? "" })} />
-            {CON_DISTRITO.includes(cargoId) && (
-              <Buscador etiqueta={cargoId === "diputados_locales_mr" ? "Distrito local" : "Distrito federal"} todos="Todos los distritos" valor={terr.distrito} ancho="min-w-0"
-                deshabilitado={!terr.estado} placeholder={terr.estado ? "Todos los distritos" : "Elige una entidad"} opciones={optDis}
-                onChange={(v) => setTerr({ ...NAC, estado: terr.estado, distrito: v, nombre: v ? `${cat?.estados.find((e) => e.id_estado === terr.estado)?.abreviatura}-${v % 100}` : "" })} />
-            )}
-            <Buscador etiqueta="Municipio" todos="Todos los municipios" valor={terr.municipio} ancho="min-w-0"
-              deshabilitado={!terr.estado} placeholder={terr.estado ? "Todos los municipios" : "Elige una entidad"} opciones={optMun}
-              onChange={(v, o) => setTerr({ ...NAC, estado: terr.estado, municipio: v, nombre: o?.etiqueta ?? "" })} />
-            <Buscador etiqueta="Sección" todos="Todas las secciones" valor={terr.seccion} ancho="min-w-0"
-              deshabilitado={!terr.estado} placeholder={terr.estado ? "Todas las secciones" : "Elige una entidad"} opciones={optSec}
-              onChange={(v, o) => setTerr({ ...terr, seccion: v, ctx: o?.sub ?? terr.nombre })} />
-          </div>
-          <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Escribe para buscar. Distrito y municipio son alternativos (un distrito puede abarcar varios municipios); la sección se busca dentro de lo elegido.</p>
-        </div>
+        {cat && <FiltroTerritorio estados={cat.estados} cargo={cargoId} anio={anio} valor={filtro_t} onChange={(f) => { setFiltroT(f); setFiltro(""); }} />}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3" style={{ borderColor: "var(--line)" }}>
           <nav className="migas" aria-label="Ruta">
-            <button onClick={() => setTerr(NAC)}>Nacional</button>
-            {terr.estado > 0 && <><ChevronRight size={14} style={{ color: "var(--fg-mute)" }} /><button onClick={() => setTerr({ ...NAC, estado: terr.estado })}>{nombreEstado(terr.estado)}</button></>}
+            <button onClick={() => setTerr({ ...terr, estado: 0, distrito: 0, municipio: 0, seccion: 0, nombre: "", ctx: "" })}>Nacional</button>
+            {terr.estado > 0 && <><ChevronRight size={14} style={{ color: "var(--fg-mute)" }} /><button onClick={() => setTerr({ estado: terr.estado, distrito: 0, municipio: 0, seccion: 0, nombre: "", ctx: "" })}>{nombreEstado(terr.estado)}</button></>}
             {(terr.distrito > 0 || terr.municipio > 0) && <><ChevronRight size={14} style={{ color: "var(--fg-mute)" }} /><button onClick={() => setTerr({ ...terr, seccion: 0 })}>{terr.municipio ? terr.nombre : `Distrito ${terr.nombre}`}</button></>}
             {terr.seccion > 0 && <><ChevronRight size={14} style={{ color: "var(--fg-mute)" }} /><span>Sección {terr.seccion % 10000}</span></>}
           </nav>
@@ -249,6 +206,10 @@ export default function ResultadosPorCargo() {
           </div>
         </div>
       </section>
+
+      {/* 2b. Dos o más territorios: lado a lado, y cuál se ve en detalle */}
+      {ts.length > 1 && anio && cat && <LadoALadoResultados ts={ts} cargoId={cargoId} anio={anio} lectura={lectura} estados={cat.estados} onVer={setIDet} />}
+      {cat && <ElegirDetalle ts={ts} i={Math.min(iDet, ts.length - 1)} onChange={setIDet} estados={cat.estados} />}
 
       {/* 3. Resultado del territorio en el año */}
       {!serie ? <Cargando alto={240} /> : !r ? (

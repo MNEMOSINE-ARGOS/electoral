@@ -1,19 +1,20 @@
 import { NextResponse } from "next/server";
 import { q } from "@/lib/db";
+import { claves } from "@/lib/params";
 import { indicadores, porBloque, porCandidatura, claseUnidad, esEnfoque } from "@/lib/analisis";
 
 // Distritos de UNA elección (tipo + año). Diputados federales/presidente/senado → distrito federal; diputados locales → distrito local.
-// ?eleccion=diputados_federales&anio=2024[&estado=5]
+// ?eleccion=diputados_federales&anio=2024[&estado=5[,19…]]
 export async function GET(req: Request) {
   const u = new URL(req.url);
   const eleccion = u.searchParams.get("eleccion") || "diputados_federales";
   const anio = Number(u.searchParams.get("anio"));
-  const estado = Number(u.searchParams.get("estado") || 0);
+  const estados = claves(u.searchParams.get("estado"));
   const enfoqueP = u.searchParams.get("enfoque"); const enfoque = esEnfoque(enfoqueP) ? enfoqueP : "general";
   if (!anio) return NextResponse.json({ error: "Falta anio" }, { status: 400 });
   const params: unknown[] = [eleccion, anio];
-  const fe = estado ? " AND id_estado = $3" : "";
-  if (estado) params.push(estado);
+  const fe = estados.length ? " AND id_estado = ANY($3::int[])" : "";
+  if (estados.length) params.push(estados);
   const tot = await q<{ id_distrito: number; id_estado: number; secciones: string; votos_totales: string | null; lista_nominal: string | null; confianza: string | null; tipo: string; fuente: string }>(
     `SELECT id_distrito, id_estado, secciones, votos_totales, lista_nominal, confianza, tipo, fuente FROM agg_dis_totales WHERE eleccion = $1 AND anio = $2 AND extraordinaria = false${fe} ORDER BY id_distrito`, params);
   const ids = tot.map((t) => t.id_distrito);

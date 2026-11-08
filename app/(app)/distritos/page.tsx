@@ -10,7 +10,8 @@ import { BLOQUES, ENFOQUES, nombreCandidatura, porBloque, porCandidatura, type C
 import { CeldaClase, ResumenClases, useEnfoque } from "@/components/Enfoque";
 import { Ayuda } from "@/components/Ayuda";
 import { colorPartido, nombreEleccion } from "@/lib/partidos";
-import { BotonLimpiar } from "@/components/FiltroTerritorio";
+import { BotonLimpiar, MAX_TERR } from "@/components/FiltroTerritorio";
+import { BuscadorMulti } from "@/components/BuscadorMulti";
 import { fmt, pct } from "@/lib/format";
 
 type Dist = {
@@ -30,7 +31,8 @@ export default function Distritos() {
   const enf = ENFOQUES.find((e) => e.id === enfoque)!;
   const [eleccion, setEleccion] = useState<string>("diputados_federales");
   const [anio, setAnio] = useState<number | null>(null);
-  const [estado, setEstado] = useState(0);
+  const [estados, setEstados] = useState<number[]>([]);
+  const estado = estados.join(","); // «5,19»: /api/distritos acepta varias entidades
   const [lista, setLista] = useState<Dist[] | null>(null);
   const [circ, setCirc] = useState<{ circunscripciones: Circ[]; aviso: string } | null>(null);
   const [sel, setSel] = useState<Dist | null>(null);
@@ -54,13 +56,27 @@ export default function Distritos() {
     api<typeof hist>(`/api/distrito?eleccion=${eleccion}&anio=${anio}&id=${sel.id_distrito}`).then(setHist);
   }, [sel, eleccion, anio]);
 
-  const estados = cat?.estados ?? [];
-  const nombreEst = (id: number) => estados.find((e) => e.id_estado === id)?.abreviatura ?? String(id);
+  const cats = cat?.estados ?? [];
+  const nombreEst = (id: number) => cats.find((e) => e.id_estado === id)?.abreviatura ?? String(id);
   const resumen = useMemo(() => {
     const g: Record<string, number> = {}, c: Record<string, number> = {};
     for (const d of lista ?? []) { if (d.ganador_bloque) g[d.ganador_bloque] = (g[d.ganador_bloque] ?? 0) + 1; if (d.clase) c[d.clase] = (c[d.clase] ?? 0) + 1; }
     return { g, c };
   }, [lista]);
+  // Con 2+ entidades: resumen por entidad, lado a lado (distritos ganados por bloque y participación = Σ votos ÷ Σ lista nominal)
+  const porEntidad = useMemo(() => {
+    if (estados.length < 2 || !lista) return null;
+    const cols = estados.map((e) => {
+      const ds = lista.filter((d) => d.id_estado === e);
+      const g: Record<string, number> = {};
+      let vt = 0, ln = 0;
+      for (const d of ds) { if (d.ganador_bloque) g[d.ganador_bloque] = (g[d.ganador_bloque] ?? 0) + 1; if (d.votos_totales && d.lista_nominal) { vt += d.votos_totales; ln += d.lista_nominal; } }
+      return { e, n: ds.length, g, part: ln ? (100 * vt) / ln : null };
+    });
+    const tot = (b: string) => cols.reduce((s, c) => s + (c.g[b] ?? 0), 0);
+    const bloques = [...new Set(cols.flatMap((c) => Object.keys(c.g)))].sort((a, b) => tot(b) - tot(a));
+    return { cols, bloques };
+  }, [estados, lista]);
 
   const serieHist = useMemo(() => (hist?.historia ?? []).map((h) => {
     const b = porBloque(h.partidos, h.anio), t = Object.values(b).reduce((x, y) => x + y, 0);
@@ -71,8 +87,8 @@ export default function Distritos() {
   const bloquesHist = useMemo(() => [...new Set(serieHist.flatMap((r) => Object.keys(r).filter((k) => k !== "anio")))], [serieHist]);
 
   // «Limpiar filtros»: diputados federales, el año más reciente, todo el país, sin distrito abierto
-  const sucio = eleccion !== "diputados_federales" || !!estado || !!sel || (anio !== null && anios.length > 0 && anio !== anios[0]);
-  function limpiar() { setEleccion("diputados_federales"); setAnio(null); setEstado(0); setSel(null); setHist(null); }
+  const sucio = eleccion !== "diputados_federales" || estados.length > 0 || !!sel || (anio !== null && anios.length > 0 && anio !== anios[0]);
+  function limpiar() { setEleccion("diputados_federales"); setAnio(null); setEstados([]); setSel(null); setHist(null); }
 
   return (
     <>
@@ -86,9 +102,11 @@ export default function Distritos() {
         <div className="flex flex-wrap gap-2">{CARGOS.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => { setEleccion(t); setAnio(null); }}>{nombreEleccion[t]}{t === "presidente" ? " (por distrito)" : ""}</button>)}</div>
         <div className="flex flex-wrap gap-2">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
         <AvisoSiPrep eleccion={eleccion} anio={anio} />
-        <label className="space-y-1 block max-w-xs"><span className="label">Estado</span>
-          <select className="field" value={estado} onChange={(e) => setEstado(Number(e.target.value))}><option value={0}>{local ? "Elige un estado" : "Todos"}</option>{estados.map((e) => <option key={e.id_estado} value={e.id_estado}>{e.nombre_corto}</option>)}</select></label>
-        {local && !estado && <p className="text-sm" style={{ color: "var(--warn)" }}>Los distritos locales son de cada estado y los años de elección varían por estado: elige un estado.</p>}
+        <div className="max-w-md">
+          <BuscadorMulti etiqueta="Entidades" todos={local ? "Ninguna" : "Todo el país"} placeholder={local ? "Elige una o varias entidades" : "Todo el país"} valores={estados} max={MAX_TERR}
+            opciones={cats.map((e) => ({ valor: e.id_estado, etiqueta: e.nombre_corto, sub: e.abreviatura }))} onChange={setEstados} />
+        </div>
+        {local && !estado && <p className="text-sm" style={{ color: "var(--warn)" }}>Los distritos locales son de cada estado y los años de elección varían por estado: elige una o varias entidades.</p>}
       </section>
 
       {circ && circ.circunscripciones.length > 0 && !estado && (
@@ -112,8 +130,23 @@ export default function Distritos() {
         </section>
       )}
 
-      {!lista ? <Cargando alto={360} /> : lista.length === 0 ? <p className="material p-6">Sin distritos para esta elección{local && !estado ? " (elige un estado)" : ""}.</p> : (
+      {!lista ? <Cargando alto={360} /> : lista.length === 0 ? <p className="material p-6">Sin distritos para esta elección{local && !estado ? " (elige una o varias entidades)" : ""}.</p> : (
         <>
+          {porEntidad && (
+            <section className="material p-4 space-y-2 overflow-x-auto">
+              <p className="label">Por entidad, lado a lado · {anio}</p>
+              <table className="t">
+                <thead><tr><th />{porEntidad.cols.map((c) => <th key={c.e}>{cats.find((x) => x.id_estado === c.e)?.nombre_corto ?? c.e}</th>)}</tr></thead>
+                <tbody>
+                  <tr><td className="label">Distritos</td>{porEntidad.cols.map((c) => <td key={c.e} className="num">{c.n || "—"}</td>)}</tr>
+                  {porEntidad.bloques.map((b) => (
+                    <tr key={b}><td style={{ color: BLOQUES[b]?.color, fontWeight: 700 }}>{BLOQUES[b]?.nombre ?? b}</td>{porEntidad.cols.map((c) => <td key={c.e} className="num">{c.g[b] ?? 0}</td>)}</tr>))}
+                  <tr><td className="label">Participación<Ayuda clave="participacion" /></td>{porEntidad.cols.map((c) => <td key={c.e}>{pct(c.part)}</td>)}</tr>
+                </tbody>
+              </table>
+              <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Distritos ganados por el bloque de la candidatura más votada (agrupación analítica, no oficial). Participación de la entidad = suma de votos ÷ suma de lista nominal de sus distritos. Una entidad sin distritos en esta elección queda en «—».</p>
+            </section>
+          )}
           <section className="material p-4 space-y-3">
             <div className="flex flex-wrap gap-4 text-sm">
               {Object.entries(resumen.g).sort((a, b) => b[1] - a[1]).map(([k, n]) => <span key={k}><b style={{ color: BLOQUES[k]?.color }}>{n}</b> {BLOQUES[k]?.nombre}</span>)}

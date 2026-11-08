@@ -40,6 +40,9 @@ const LIMITES: Record<Limite, { t: string; corto: string; archivo: string | null
 };
 const LIMITES_DE: Record<Foco["tipo"], Limite[]> = { municipio: ["df", "dl"], distrito: ["dl", "municipio"], distrito_local: ["df", "municipio"] };
 type InfoSeccion = { n: string; municipio: number; df: number; dl: number };
+/** Filtro del mapa de una entidad, en orden: municipio → distrito local → sección (0 = sin elegir). Lo controla el filtro de la pantalla (components/FiltroMapa). */
+export type RutaMapa = { municipio: number; dl: number; seccion: number };
+export const RUTA_VACIA: RutaMapa = { municipio: 0, dl: 0, seccion: 0 };
 type Sector = { sector: string; secciones: number };
 /** Borde de cada sector: tonos distinguibles entre sí, sin verdes (regla de diseño) */
 const COLOR_SECTOR = ["#0E71AF", "#D81B60", "#B45309", "#7C3AED", "#0891B2", "#BE185D", "#475569", "#EA580C", "#4338CA", "#92400E", "#9333EA", "#0369A1"];
@@ -63,8 +66,9 @@ const porIdDe = (r: RespMapa | null) => (r ? new Map(r.unidades.map((u) => [u.id
 /** Desde qué año vale la cartografía de un nivel (los distritos cambian; municipios y secciones no se limitan aquí). */
 const vigenteDesde = (ent: EntidadGeo, nivel: Nivel) => nivel === "distrito" ? ent.df_desde : nivel === "distrito_local" ? ent.dl_desde : null;
 
-export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comparar, onSalir, resumen }: {
+export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comparar, onSalir, resumen, ruta = RUTA_VACIA, onRuta }: {
   ent: EntidadGeo; eleccion: string; anio: number; metrica: Metrica; partido: string; vista: Vista; comparar: number | null;
+  /** municipio → distrito local → sección elegidos en el filtro de la pantalla; tocar el mapa los actualiza con onRuta */ ruta?: RutaMapa; onRuta?: (r: RutaMapa) => void;
   /** el mapa se abrió en el lugar del nacional: «México» en la ruta regresa a él */ onSalir?: () => void;
   /** resumen de la entidad (lo arma el mapa nacional) que se ve a la derecha mientras no se pase el cursor por el mapa */ resumen?: ReactNode;
 }) {
@@ -79,8 +83,20 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comp
   const [nivel, setNivel] = useState<Nivel>("municipio");
   const [foco, setFoco] = useState<Foco | null>(null);
   const valido = (id: Nivel) => niveles.some((n) => n.id === id && !n.no);
-  useEffect(() => { if (!valido(nivel)) setNivel("municipio"); if (foco && !valido(foco.tipo)) setFoco(null); }); // eslint-disable-line react-hooks/exhaustive-deps
+  // Un distrito local abierto desde el filtro vale con cualquier cargo (se dibuja con la cartografía vigente); abierto desde el mapa, solo si su capa es válida
+  useEffect(() => { if (!valido(nivel)) setNivel("municipio"); if (foco && !valido(foco.tipo) && !(foco.tipo === "distrito_local" && ruta.dl === foco.id)) setFoco(null); }); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setFoco(null); }, [ent.id]);
+  // El filtro manda: municipio (con o sin distrito local) o, sin municipio, distrito local
+  useEffect(() => {
+    if (ruta.municipio) cargarGeo(`/geo/${ent.id}/municipios.geojson`).then((g) => {
+      const f = g.features.find((x) => Number(x.properties.id) === ruta.municipio);
+      setFoco({ tipo: "municipio", id: ruta.municipio, nombre: String(f?.properties.nombre ?? ruta.municipio) });
+    });
+    else if (ruta.dl) setFoco({ tipo: "distrito_local", id: ruta.dl, nombre: `Distrito ${ruta.dl % 100}` });
+    else setFoco((f) => (f && f.tipo !== "distrito" ? null : f));
+  }, [ruta.municipio, ruta.dl, ent.id]);
+  /** Cerrar el municipio o distrito: también limpia el filtro */
+  const cerrarFoco = () => { setFoco(null); onRuta?.(RUTA_VACIA); };
 
   const [nombres, setNombres] = useState<Record<number, string>>({});
   const [conPoligono, setConPoligono] = useState<Set<number>>(new Set());
@@ -123,7 +139,9 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comp
   const abrir = (id: number | null) => {
     if (id === null) return;
     if (nivel === "seccion") { setSel(id); return; }
-    setFoco({ tipo: nivel, id, nombre: nombres[id] ?? String(id) });
+    if (onRuta && nivel === "municipio") onRuta({ ...RUTA_VACIA, municipio: id });
+    else if (onRuta && nivel === "distrito_local") onRuta({ ...RUTA_VACIA, dl: id });
+    else setFoco({ tipo: nivel, id, nombre: nombres[id] ?? String(id) });
     caja.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -134,16 +152,17 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comp
           <nav aria-label="Ruta del mapa" className="mapa-ruta">
             {onSalir ? <button type="button" onClick={onSalir}>México</button> : <span className="label">Cartografía del INE</span>}
             <ChevronRight size={12} aria-hidden />
-            {foco ? <button type="button" onClick={() => setFoco(null)}>{ent.nombre}</button> : <span aria-current="page">{ent.nombre}</span>}
+            {foco ? <button type="button" onClick={cerrarFoco}>{ent.nombre}</button> : <span aria-current="page">{ent.nombre}</span>}
             {foco && <><ChevronRight size={12} aria-hidden /><span aria-current="page">{foco.nombre}</span></>}
+            {foco?.tipo === "municipio" && ruta.dl > 0 && <><ChevronRight size={12} aria-hidden /><span aria-current="page">Distrito local {ruta.dl % 100}</span></>}
           </nav>
           <h2 id="mapa-ent-t" className="text-2xl font-bold">
-            {foco ? `${foco.tipo === "municipio" ? foco.nombre : `${ent.nombre}, ${UNIDAD[foco.tipo][0]} ${foco.nombre.replace("Distrito ", "")}`} sección por sección` : `${ent.nombre} por dentro`}
+            {foco ? `${foco.tipo === "municipio" ? `${foco.nombre}${ruta.dl ? `, distrito local ${ruta.dl % 100}` : ""}` : `${ent.nombre}, ${UNIDAD[foco.tipo][0]} ${foco.nombre.replace("Distrito ", "")}`} sección por sección` : `${ent.nombre} por dentro`}
             <span className="font-normal" style={{ color: "var(--fg-mute)" }}> · {nombreEleccion[eleccion] ?? eleccion} {anio}</span>
           </h2>
         </div>
         {foco ? (
-          <button type="button" className="btn btn-gris" onClick={() => setFoco(null)}><ArrowLeft size={15} />Volver a {ent.nombre}</button>
+          <button type="button" className="btn btn-gris" onClick={cerrarFoco}><ArrowLeft size={15} />Volver a {ent.nombre}</button>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
           {onSalir && <button type="button" className="btn btn-gris" onClick={onSalir}><ArrowLeft size={15} />Todo el país</button>}
@@ -159,7 +178,8 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comp
       {metrica === "cambio" && comparar !== null && !comparaValida && !foco && (
         <p className="aviso text-sm">En {comparar} los {UNIDAD[nivel][1]} eran otra distritación (esta vale desde {desde}): no se comparan. Usa municipios o secciones, o compara contra un año desde {desde}.</p>)}
       {foco ? (
-        <MapaFoco ent={ent} foco={foco} padre={porId.get(foco.id)} eleccion={eleccion} anio={anio} metrica={metrica} partido={partido} vista={vista} comparar={comparar} anios={resp?.anios ?? []} />
+        <MapaFoco key={`${foco.tipo}-${foco.id}`} ent={ent} foco={foco} padre={nivel === foco.tipo ? porId.get(foco.id) : undefined}
+          dl={foco.tipo === "municipio" ? ruta.dl : 0} seccion={ruta.seccion} onSeccion={onRuta ? (sec) => onRuta({ ...ruta, municipio: foco.tipo === "municipio" ? foco.id : ruta.municipio, seccion: sec ?? 0 }) : undefined} eleccion={eleccion} anio={anio} metrica={metrica} partido={partido} vista={vista} comparar={comparar} anios={resp?.anios ?? []} />
       ) : (
         <>
           {niveles.filter((n) => n.no).map((n) => <p key={n.id} className="text-xs" style={{ color: "var(--fg-mute)" }}>{n.t}: {n.no}</p>)}
@@ -212,7 +232,7 @@ export function MapaEntidad({ ent, eleccion, anio, metrica, partido, vista, comp
  *  Con la métrica «Cambio», cada mapa se compara con el anterior de la fila. */
 function Historia({ ent, url, nivel, eleccion, anio, anios, metrica, partido, nombre, contorno, filtro, filtroQS = "", unidad }: {
   ent: EntidadGeo; url: string; nivel: Nivel; eleccion: string; anio: number; anios: number[]; metrica: Metrica; partido: string;
-  nombre: (id: number) => string; contorno?: string | null; filtro?: { prop: string; valor: number } | null; filtroQS?: string; unidad: [string, string];
+  nombre: (id: number) => string; contorno?: string | null; filtro?: { prop: string; valor: number; y?: { prop: string; valor: number } } | null; filtroQS?: string; unidad: [string, string];
 }) {
   const desde = vigenteDesde(ent, nivel);
   const validos = anios.filter((a) => a <= anio && (desde === null || a >= desde));
@@ -263,14 +283,18 @@ function MapaMini({ ent, url, nivel, eleccion, anio, anterior, actual, metrica, 
 }
 
 /** Un municipio o distrito solo: sus secciones en el mapa (encuadrado en él, con el número de cada sección) y en una tabla. */
-function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido, vista, comparar, anios }: {
+function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido, vista, comparar, anios, dl = 0, seccion = 0, onSeccion }: {
   ent: EntidadGeo; foco: Foco; padre: UnidadMapa | undefined; eleccion: string; anio: number; metrica: Metrica; partido: string;
   vista: Vista; comparar: number | null; anios: number[];
+  /** dentro de un municipio, solo las secciones de este distrito local (cartografía vigente) */ dl?: number;
+  /** sección elegida en el filtro de la pantalla; tocar una sección la avisa con onSeccion */ seccion?: number; onSeccion?: (id: number | null) => void;
 }) {
   const { enfoque } = useEnfoque();
   const [info, setInfo] = useState<Record<number, InfoSeccion>>({});
   const [nomMun, setNomMun] = useState<Record<number, string>>({});
-  const [sel, setSel] = useState<number | null>(null);
+  const [sel, setSelLocal] = useState<number | null>(seccion || null);
+  useEffect(() => { setSelLocal(seccion || null); }, [seccion]);
+  const setSel = (id: number | null) => { setSelLocal(id); onSeccion?.(id); };
   const [resaltar, setResaltar] = useState<string | null>(null);
   const [orden, setOrden] = useState<"margen" | "seccion" | "participacion">("margen");
   const [sectores, setSectores] = useState<Sector[]>([]);
@@ -289,21 +313,25 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido, vista, c
   const [grupoHover, setGrupoHover] = useState<number | null>(null);
   const prop = PROP_SECCION[foco.tipo];
   const url = `/geo/${ent.id}/secciones.geojson`;
-  const filtroQS = `&${foco.tipo}=${foco.id}`;
+  // Distrito local: se arma con la cartografía vigente (vale con cualquier cargo y año): se piden las secciones de la entidad y se recortan
+  const geografico = foco.tipo === "distrito_local";
+  const filtroQS = geografico ? "" : `&${foco.tipo}=${foco.id}`;
 
   // Distrito: «Cambio» solo contra años de la misma distritación (las secciones de un distrito de otra era no son las mismas)
   const desdeFoco = vigenteDesde(ent, foco.tipo);
   const comparaValida = comparar !== null && (desdeFoco === null || comparar >= desdeFoco);
   const resp = useDatosMapa(urlMapa(eleccion, anio, ent.id, "seccion", enfoque, filtroQS));
   const respPrev = useDatosMapa(metrica === "cambio" && comparaValida ? urlMapa(eleccion, comparar!, ent.id, "seccion", enfoque, filtroQS) : null);
-  const datos = resp?.unidades ?? null;
-  useEffect(() => { setSel(null); }, [eleccion, anio, foco.id]);
+  // Con distrito local: solo las secciones del municipio que caen en él (la lista de la base se recorta con la cartografía)
+  const [infoDe, setInfoDe] = useState("");
+  const recorta = dl > 0 || geografico;
+  const datos = resp && (!recorta || infoDe === `${foco.id}-${dl}`) ? (recorta ? resp.unidades.filter((u) => info[u.id]) : resp.unidades) : null;
   useEffect(() => {
-    cargarGeo(url).then((g) => setInfo(Object.fromEntries(g.features.filter((f) => Number(f.properties[prop]) === foco.id).map((f) => {
+    cargarGeo(url).then((g) => { setInfoDe(`${foco.id}-${dl}`); setInfo(Object.fromEntries(g.features.filter((f) => Number(f.properties[prop]) === foco.id && (!dl || Number(f.properties.dl) === dl)).map((f) => {
       const p = f.properties as { id: number; seccion: number; municipio: number; df: number; dl: number };
       return [p.id, { n: String(p.seccion), municipio: p.municipio, df: p.df, dl: p.dl }];
-    }))));
-  }, [url, prop, foco.id]);
+    }))); });
+  }, [url, prop, foco.id, dl]);
   useEffect(() => {
     cargarGeo(`/geo/${ent.id}/municipios.geojson`).then((g) => setNomMun(Object.fromEntries(g.features.map((f) => [Number(f.properties.id), String(f.properties.nombre)]))));
   }, [ent.id]);
@@ -321,7 +349,7 @@ function MapaFoco({ ent, foco, padre, eleccion, anio, metrica, partido, vista, c
     return { prop: limite, etiquetas: Object.fromEntries(vs.map((v) => [v, nombreGrupo(limite, v)])) };
   }, [limite, info, nomMun, sectores, sectorDe]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filtro = useMemo(() => ({ prop, valor: foco.id }), [prop, foco.id]);
+  const filtro = useMemo(() => ({ prop, valor: foco.id, ...(dl ? { y: { prop: "dl", valor: dl } } : {}) }), [prop, foco.id, dl]);
   const porId = useMemo(() => porIdDe(resp) ?? new Map<number, UnidadMapa>(), [resp]);
   const prev = useMemo(() => metrica !== "cambio" || comparar === null ? null : comparaValida ? porIdDe(respPrev) : new Map<number, UnidadMapa>(), [metrica, comparar, comparaValida, respPrev]);
   const enMapa = useMemo(() => (datos ?? []).filter((u) => numeros[u.id] !== undefined), [datos, numeros]);

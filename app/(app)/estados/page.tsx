@@ -6,7 +6,8 @@ import { useCatalogo } from "@/components/useCatalogo";
 import { useEnfoque, CeldaClase } from "@/components/Enfoque";
 import { MapaGeo, cargarGeo } from "@/components/MapaGeo";
 import { MosaicoEstados } from "@/components/MosaicoEstados";
-import { MapaEntidad } from "@/components/MapaEntidad";
+import { MapaEntidad, RUTA_VACIA, type RutaMapa } from "@/components/MapaEntidad";
+import { FiltroMapa } from "@/components/FiltroMapa";
 import { FichaUnidad, LeyendaMapa } from "@/components/MapaPiezas";
 import { Ayuda } from "@/components/Ayuda";
 import { Cargando } from "@/components/Kpi";
@@ -61,7 +62,10 @@ export default function Estados() {
   const [comparar, setComparar] = useState<number | null>(null);
   const [filasPrev, setFilasPrev] = useState<Fila[] | null>(null);
   const [filas, setFilas] = useState<Fila[] | null>(null);
-  const [sel, setSel] = useState<number | null>(null);
+  const [sel, setSelEnt] = useState<number | null>(null);
+  // Filtro del mapa en orden: entidad (sel) → municipio → distrito local → sección. Cambiar de entidad limpia lo demás.
+  const [ruta, setRuta] = useState<RutaMapa>(RUTA_VACIA);
+  const setSel = (id: number | null) => { setSelEnt(id); setRuta(RUTA_VACIA); };
   const [resaltar, setResaltar] = useState<string | null>(null);
   const [hoverMos, setHoverMos] = useState<number | null>(null);
   const [geoEnt, setGeoEnt] = useState<EntidadGeo[]>([]);
@@ -140,7 +144,7 @@ export default function Estados() {
   const desc = met.d;
   const usaPartido = metrica === "partido" || metrica === "bivariado" || metrica === "cambio";
   // «Limpiar filtros»: presidencia, el año más reciente, quién ganó, por áreas, en mapa, sin entidad abierta
-  const sucio = eleccion !== "presidente" || metrica !== "ganador" || partido !== "morena" || forma !== "mapa" || vista !== "areas" || sel !== null
+  const sucio = eleccion !== "presidente" || metrica !== "ganador" || partido !== "morena" || forma !== "mapa" || vista !== "areas" || sel !== null || !!(ruta.municipio || ruta.dl || ruta.seccion)
     || (anio !== null && anios.length > 0 && anio !== anios[0]);
   function limpiar() {
     setEleccion("presidente"); setAnio(null); setMetrica("ganador"); setPartido("morena"); setForma("mapa"); setVista("areas");
@@ -167,6 +171,8 @@ export default function Estados() {
               style={!ok ? { opacity: 0.35, cursor: "not-allowed" } : undefined} onClick={() => setAnio(a)}>
               {a}{local && vot && n > 0 && <small className="font-normal ml-1" style={{ color: "var(--fg-mute)" }}>{n}</small>}</button>;
           })}</div></div>
+        {geoEnt.length > 0 && <FiltroMapa entidades={geoEnt.filter((g) => porId.has(g.id) || g.id === sel).map((g) => ({ valor: g.id, etiqueta: nombres[g.id] ?? g.nombre, sub: abrev[g.id] }))}
+          estado={sel} ent={entSel} ruta={ruta} onEstado={elegir} onRuta={(r) => { setRuta(r); requestAnimationFrame(() => detalle.current?.scrollIntoView({ behavior: "smooth", block: "start" })); }} />}
         {local && vot && <p className="text-xs" style={{ color: "var(--fg-mute)" }}>El número junto a cada año es cuántas entidades votaron ese cargo.{sel !== null ? ` Atenuados: años en que ${nombres[sel]} no votó.` : " Atenuados: años sin votos por entidad en la base."}</p>}
         <div className="mapa-ctl"><span className="label">Colorear por</span>
           <div className="flex flex-wrap items-center gap-2">
@@ -194,7 +200,7 @@ export default function Estados() {
         // La entidad se abre EN EL LUGAR del mapa nacional; «México» en su ruta (o «Todo el país») regresa
         <div className="entra" key={entSel.id}>
           <MapaEntidad ent={entSel} eleccion={eleccion} anio={anio} metrica={metrica} partido={partido} vista={vista} comparar={metrica === "cambio" ? comparar : null}
-            onSalir={() => setSel(null)}
+            onSalir={() => setSel(null)} ruta={ruta} onRuta={setRuta}
             resumen={<DetalleEntidad nombre={nombres[entSel.id]} u={porId.get(entSel.id)} f={filas.find((x) => x.id_estado === entSel.id)} anio={anio} geo={false} />} />
         </div>
       ) : entSel && anio !== null ? (

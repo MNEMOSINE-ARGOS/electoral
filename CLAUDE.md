@@ -51,7 +51,9 @@ app/(app)/            pantallas (cliente)
                       (enfoque; borde en ±5), cambio frente a otra elección del cargo (sin comparación = rayado), participación, fuerza
                       de un partido, fuerza × participación (bivariado 3×3 por terciles). «Dibujar como» (VISTAS): áreas, círculos
                       (área ∝ votos), objetivos (enfoque: círculo = votos que faltan donde pierde por ≤ 15) e historia (últimas 4
-                      elecciones). Mapa o mosaico; leyenda que resalta; frases «lo que dice el mapa». Recorrido EN EL MISMO ESPACIO: tocar
+                      elecciones). Filtro «Territorio» en orden fijo Entidad → Municipio → Distrito local → Sección (components/FiltroMapa, de la
+                      cartografía vigente: con un municipio solo salen los distritos locales que lo tocan y sus secciones; municipio + distrito
+                      local = el cruce; el filtro y los toques al mapa se sincronizan con `RutaMapa`). Mapa o mosaico; leyenda que resalta; frases «lo que dice el mapa». Recorrido EN EL MISMO ESPACIO: tocar
                       una entidad reemplaza el mapa nacional por el de la entidad (components/MapaEntidad, ruta «México › entidad › municipio»,
                       «Todo el país» regresa); tocar un municipio o distrito lo abre solo, sección por sección, con su panorama
                       (components/PanoramaTerritorio: cifras de la elección, secciones ganadas por fuerza, su historia en el cargo, electorado
@@ -104,6 +106,14 @@ data/prep/            PREP procesados (hoy: Coahuila, diputaciones locales 2026)
 public/geo/           estados.geojson (nacional); <id_estado>/ = las 32 entidades: entidad, municipios, distritos_federales, distritos_locales,
                       secciones (~111 MB en total; el mapa descarga solo la entidad que se abre, hasta ~9 MB Veracruz)
 ```
+
+**Filtros de territorio con selección múltiple** (todas las pantallas con filtro, salvo el mapa —que tiene su propio filtro en orden, ver `estados/`— y judicial):
+- `components/BuscadorMulti` (autocompletado que marca varias opciones; fichas debajo; máx. `MAX_TERR` = 8 por nivel).
+- `components/FiltroTerritorio` (entidad → distrito o municipio → sección; `FiltroT` con listas por nivel y `nombres`) y `components/Territorio` (entidad → municipio; `Sel`).
+  Las listas dependientes muestran **solo lo de las entidades elegidas** (y las secciones, solo las de los municipios o distritos elegidos); al cambiar de elección se quitan distritos y secciones que ya no existen.
+- `territorios()` / `lugares()` devuelven los territorios a analizar: los del nivel más específico con algo elegido. Con 2 o más se muestran **lado a lado** (cada uno por separado, nunca se suman)
+  y `ElegirDetalle` decide cuál se ve con el detalle completo. Resultados: `components/LadoALadoResultados` (año en columnas + trayectoria de una fuerza, una línea por territorio).
+- `/api/municipios`, `/api/opciones` y `/api/distritos` aceptan `estado`, `municipio` y `distrito` como listas separadas por coma (`lib/params.ts`, `claves()`); las demás APIs siguen siendo de un territorio.
 
 Patrón de las pantallas: `useEffect` → `api<T>(url)` (`lib/api.ts`) → `useMemo` para derivar. Los cálculos analíticos viven en `lib/` como **funciones puras** y se usan igual en servidor y cliente.
 

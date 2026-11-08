@@ -6,7 +6,8 @@ import { useCatalogo } from "@/components/useCatalogo";
 import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
 import { Territorio, type Sel } from "@/components/Territorio";
 import { Buscador } from "@/components/Buscador";
-import { BotonLimpiar } from "@/components/FiltroTerritorio";
+import { BuscadorMulti } from "@/components/BuscadorMulti";
+import { BotonLimpiar, ElegirDetalle, MAX_TERR, NAC, type Terr } from "@/components/FiltroTerritorio";
 import { EstrategiaSecciones } from "@/components/EstrategiaSecciones";
 import { PerfilParticipacion } from "@/components/PerfilParticipacion";
 import { PerfilCenso } from "@/components/PerfilCenso";
@@ -37,6 +38,8 @@ type Lugar = { candidatura: string; votos: number; pct: number };
 const ORDEN_FICHA = ["presidente", "senado", "diputados_federales", "gobernador", "diputados_locales_mr", "alcaldes"];
 const TEND: Record<string, { t: string; c: string }> = { sigue: { t: "Sigue al país", c: "var(--azul)" }, parcial: { t: "Parcial", c: "#d97706" }, independiente: { t: "Independiente", c: "var(--rose)" }, sin_datos: { t: "Sin datos", c: "var(--fg-mute)" } };
 const CARGOS = ["diputados_federales", "presidente", "senado", "alcaldes", "diputados_locales_mr", "gobernador"];
+/** Estado inicial (y el de «Limpiar filtros»): Torreón */
+const INICIAL: Sel = { estados: [5], municipios: [5035], nombres: { 5035: "Torreón" } };
 
 export default function Secciones() {
   const cat = useCatalogo();
@@ -46,9 +49,11 @@ export default function Secciones() {
   const [modo, setModo] = useState<"municipio" | "distrito">("municipio");
   const [eleccion, setEleccion] = useState("diputados_federales");
   const [anio, setAnio] = useState<number | null>(null);
-  const [sel, setSel] = useState<Sel>({ estado: 5, municipio: 5035 });
-  const [distritos, setDistritos] = useState<{ id_distrito: number; n: number }[]>([]);
-  const [distrito, setDistrito] = useState(0);
+  const [sel, setSel] = useState<Sel>(INICIAL);
+  const [distritos, setDistritos] = useState<{ id_distrito: number; n: number; id_estado: number }[]>([]);
+  const [distSel, setDistSel] = useState<number[]>([]);
+  const [iDet, setIDet] = useState(0);
+  const [comp, setComp] = useState<Record<string, Resp | null>>({});
   const [d, setD] = useState<Resp | null>(null);
   const [clase, setClase] = useState<string>("");
   const [secSel, setSecSel] = useState(0);
@@ -60,25 +65,63 @@ export default function Secciones() {
   // Parámetros de enlace (desde «Distritos»)
   useEffect(() => {
     const p = new URLSearchParams(location.search);
-    if (p.get("municipio") && p.get("estado")) { setEleccion(p.get("eleccion") || "diputados_federales"); setModo("municipio"); setSel({ estado: Number(p.get("estado")), municipio: Number(p.get("municipio")) }); if (p.get("anio")) setAnio(Number(p.get("anio"))); }
-    if (p.get("distrito")) { setModo("distrito"); setEleccion(p.get("eleccion") || "diputados_federales"); setSel({ estado: Number(p.get("estado")), municipio: 0 }); setDistrito(Number(p.get("distrito"))); setAnio(Number(p.get("anio"))); }
+    // ?municipio= y ?distrito= aceptan una o varias claves separadas por coma; la entidad sale de la clave
+    const lista = (k: string) => (p.get(k) ?? "").split(",").map(Number).filter((n) => n > 0);
+    const muns = lista("municipio"), dists = lista("distrito");
+    if (muns.length) { setEleccion(p.get("eleccion") || "diputados_federales"); setModo("municipio"); setSel({ estados: [...new Set(muns.map((m) => Math.floor(m / 1000)))], municipios: muns, nombres: {} }); if (p.get("anio")) setAnio(Number(p.get("anio"))); }
+    if (dists.length) { setModo("distrito"); setEleccion(p.get("eleccion") || "diputados_federales"); setSel({ estados: [...new Set(dists.map((x) => Math.floor(x / 100)))], municipios: [], nombres: {} }); setDistSel(dists); if (p.get("anio")) setAnio(Number(p.get("anio"))); }
   }, []);
   const anios = useMemo(() => (cat?.elecciones ?? []).filter((e) => e.eleccion === eleccion && !e.extraordinaria && e.anio >= (local || eleccion === "gobernador" || eleccion === "alcaldes" ? 2015 : 1994)).map((e) => e.anio).filter((a, i, arr) => arr.indexOf(a) === i).sort((a, b) => b - a), [cat, eleccion, local]);
   useEffect(() => { if (anios.length && (anio === null || !anios.includes(anio))) setAnio(anios[0]); }, [anios, anio]);
+  const est = sel.estados.join(",");
   useEffect(() => {
-    if (modo !== "distrito" || !sel.estado || anio === null) { setDistritos([]); return; }
-    api<{ distritos: { id_distrito: number; n: number }[] }>(`/api/distritos?eleccion=${eleccion}&anio=${anio}&estado=${sel.estado}`).then((r) => { setDistritos(r.distritos); setDistrito((x) => (r.distritos.some((y) => y.id_distrito === x) ? x : (r.distritos[0]?.id_distrito ?? 0))); });
-  }, [modo, sel.estado, eleccion, anio]);
+    if (modo !== "distrito" || !est || anio === null) { setDistritos([]); return; }
+    let vivo = true;
+    api<{ distritos: { id_distrito: number; n: number; id_estado: number }[] }>(`/api/distritos?eleccion=${eleccion}&anio=${anio}&estado=${est}`).then((r) => {
+      if (!vivo) return;
+      setDistritos(r.distritos);
+      // Quedan los distritos que existen en esta elección; si no queda ninguno, el primero de la lista
+      setDistSel((x) => { const q = x.filter((id) => r.distritos.some((y) => y.id_distrito === id)); return q.length ? q : r.distritos[0] ? [r.distritos[0].id_distrito] : []; });
+    });
+    return () => { vivo = false; };
+  }, [modo, est, eleccion, anio]);
+
+  // Unidades a analizar (cada una por separado): municipios o distritos elegidos
+  const abEst = (e: number) => cat?.estados.find((x) => x.id_estado === e)?.abreviatura ?? "";
+  const variosEst = sel.estados.length > 1;
+  const unidades: Terr[] = useMemo(() => modo === "municipio"
+    ? sel.municipios.map((m) => ({ ...NAC, estado: Math.floor(m / 1000), municipio: m, nombre: sel.nombres[m] ?? String(m) }))
+    : distSel.map((x) => ({ ...NAC, estado: Math.floor(x / 100), distrito: x, nombre: `${abEst(Math.floor(x / 100))}-${x % 100}` })),
+  [modo, sel, distSel, cat]); // eslint-disable-line react-hooks/exhaustive-deps
+  const iU = Math.min(iDet, Math.max(unidades.length - 1, 0));
+  const unidad = unidades[iU] ?? null;
+  const uMun = unidad?.municipio ?? 0, uDis = unidad?.distrito ?? 0, uEst = unidad?.estado ?? 0;
+  const nomU = (t: Terr) => (t.municipio ? `${t.nombre}${variosEst ? ` (${abEst(t.estado)})` : ""}` : `Distrito ${t.nombre}`);
+
+  // Lado a lado: el resumen de cada unidad (una petición por unidad; nunca se suman)
+  const claveU = unidades.map((t) => t.municipio || t.distrito).join(",");
+  useEffect(() => {
+    if (anio === null || unidades.length < 2) { setComp({}); return; }
+    let vivo = true;
+    setComp({});
+    for (const t of unidades) {
+      const k = t.municipio ? `municipio=${t.municipio}` : `distrito=${t.distrito}`;
+      api<Resp>(`/api/secciones?eleccion=${eleccion}&anio=${anio}&${k}&enfoque=${enfoque}`)
+        .then((r) => vivo && setComp((c) => ({ ...c, [k]: r }))).catch(() => vivo && setComp((c) => ({ ...c, [k]: null })));
+    }
+    return () => { vivo = false; };
+  }, [claveU, eleccion, anio, enfoque]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (anio === null) return;
-    const territorio = modo === "municipio" ? (sel.municipio ? `municipio=${sel.municipio}` : "") : distrito ? `distrito=${distrito}` : "";
+    const territorio = uMun ? `municipio=${uMun}` : uDis ? `distrito=${uDis}` : "";
     if (!territorio) { setD(null); return; }
     // Cambiar solo el enfoque conserva la sección elegida; cambiar territorio o elección la limpia
     const clave = `${eleccion}|${anio}|${territorio}`;
     setD(null); setError(""); setClase("");
     if (clave !== ultimo.current) { setSecSel(0); ultimo.current = clave; }
     api<Resp>(`/api/secciones?eleccion=${eleccion}&anio=${anio}&${territorio}&enfoque=${enfoque}`).then(setD).catch((e) => setError(e.message));
-  }, [modo, sel.municipio, distrito, eleccion, anio, enfoque]);
+  }, [uMun, uDis, eleccion, anio, enfoque]);
 
   async function abrir(id: number) { setFicha(null); setFicha(await api<Ficha>(`/api/seccion?id=${id}`)); }
   const filas = (d?.secciones ?? []).filter((s) => (!clase || s.clase === clase) && (!secSel || s.seccion_id === secSel));
@@ -102,12 +145,23 @@ export default function Secciones() {
   }, [r, filas, filtrado]);
   const totB = rf ? Object.values(rf.bloques).reduce((a, b) => a + b, 0) : 0;
   // Estado inicial de la pantalla (Torreón, diputaciones federales, el año más reciente): «Limpiar filtros» regresa aquí
-  const sucio = eleccion !== "diputados_federales" || modo !== "municipio" || sel.estado !== 5 || sel.municipio !== 5035 || !!distrito || !!clase || !!secSel
-    || vista !== "lectura" || (anio !== null && anios.length > 0 && anio !== anios[0]);
+  const sucio = eleccion !== "diputados_federales" || modo !== "municipio" || sel.estados.join() !== "5" || sel.municipios.join() !== "5035" || distSel.length > 0 || !!clase || !!secSel
+    || vista !== "lectura" || iDet !== 0 || (anio !== null && anios.length > 0 && anio !== anios[0]);
   function limpiar() {
-    setEleccion("diputados_federales"); setAnio(null); setModo("municipio"); setSel({ estado: 5, municipio: 5035 }); setDistrito(0);
+    setEleccion("diputados_federales"); setAnio(null); setModo("municipio"); setSel(INICIAL); setDistSel([]); setIDet(0);
     setClase(""); setSecSel(0); setVista("lectura"); setFicha(null);
   }
+
+  // Tabla comparativa: una columna por unidad
+  const filasComp = useMemo(() => {
+    const res = unidades.map((t) => { const k = t.municipio ? `municipio=${t.municipio}` : `distrito=${t.distrito}`; return { t, k, r: comp[k] }; });
+    const bloques = new Set<string>();
+    for (const x of res) for (const b of Object.keys(x.r?.resumen?.bloques ?? {})) bloques.add(b);
+    const tot = (r: Resp | null | undefined) => Object.values(r?.resumen?.bloques ?? {}).reduce((a, b) => a + b, 0);
+    const peso = (b: string) => res.reduce((s, x) => s + (x.r?.resumen?.bloques[b] ?? 0) / (tot(x.r) || 1), 0);
+    const orden = [...bloques].sort((a, b) => peso(b) - peso(a));
+    return { res, orden, tot };
+  }, [unidades, comp]);
 
   return (
     <>
@@ -125,14 +179,53 @@ export default function Secciones() {
           {(eleccion === "diputados_federales" || eleccion === "presidente" || local) && <button className="chip" aria-pressed={modo === "distrito"} onClick={() => setModo("distrito")}>Por distrito {local ? "local" : "federal"}</button>}
         </div>
         <div className="flex flex-wrap gap-3 items-end">
-          {cat && <Territorio estados={cat.estados} valor={sel} onChange={(s) => setSel(s)} permiteNacional={false} conMunicipio={modo === "municipio"} />}
-          {modo === "distrito" && <Buscador etiqueta={local ? "Distrito local" : "Distrito federal"} ancho="w-56" todos={null} valor={distrito} placeholder="Escribe el número…"
-            opciones={distritos.map((x) => ({ valor: x.id_distrito, etiqueta: `Distrito ${x.n}` }))} onChange={(v) => setDistrito(v)} />}
+          {cat && <Territorio estados={cat.estados} valor={sel} onChange={(s) => { setSel(s); setDistSel((x) => x.filter((id) => s.estados.includes(Math.floor(id / 100)))); }} permiteNacional={false} conMunicipio={modo === "municipio"} />}
+          {modo === "distrito" && <BuscadorMulti etiqueta={local ? "Distrito local" : "Distrito federal"} ancho="w-64" todos="Ninguno" valores={distSel} max={MAX_TERR}
+            deshabilitado={!sel.estados.length} placeholder={sel.estados.length ? "Escribe el número…" : "Elige una entidad"}
+            opciones={distritos.map((x) => ({ valor: x.id_distrito, etiqueta: `${variosEst ? `${abEst(x.id_estado)} · ` : ""}Distrito ${x.n}` }))}
+            nombres={Object.fromEntries(distSel.map((x) => [x, `${abEst(Math.floor(x / 100))}-${x % 100}`]))} onChange={setDistSel} />}
         </div>
+        <p className="text-xs" style={{ color: "var(--fg-mute)" }}>
+          Puedes marcar varias entidades y varios {modo === "municipio" ? "municipios" : "distritos"}: las listas muestran solo los de las entidades elegidas.
+          {unidades.length > 1 && <> Con {unidades.length} se comparan lado a lado; abajo eliges cuál ver en detalle.</>}
+          {!unidades.length && <> Elige al menos un {modo === "municipio" ? "municipio" : "distrito"}: la lectura por sección es de un municipio o distrito a la vez.</>}
+        </p>
       </section>
 
+      {unidades.length > 1 && anio && (
+        <section className="material p-4 space-y-2">
+          <div><p className="label">Lado a lado · {nombreEleccion[eleccion] ?? eleccion} {anio}</p><h2 className="text-lg font-bold pt-0.5">{modo === "municipio" ? "Municipios" : "Distritos"} comparados</h2></div>
+          <div className="overflow-x-auto">
+            <table className="t">
+              <thead><tr><th />{filasComp.res.map(({ t, k }) => <th key={k}>{nomU(t)}</th>)}</tr></thead>
+              <tbody>
+                {(() => {
+                  const celda = (f: (r: Resp) => React.ReactNode) => filasComp.res.map(({ k, r }) => <td key={k}>{r === undefined ? <span style={{ color: "var(--fg-mute)" }}>…</span> : !r?.resumen ? <span style={{ color: "var(--fg-mute)" }}>sin datos</span> : f(r)}</td>);
+                  const tend = (r: Resp, v: string) => r.secciones.filter((s) => s.tendencia?.veredicto === v).length;
+                  return <>
+                    <tr><td className="label">Secciones</td>{celda((r) => <b>{fmt(r.resumen!.total)}</b>)}</tr>
+                    <tr><td className="label">Participación<Ayuda clave="participacion" /></td>{celda((r) => pct(r.resumen!.participacion))}</tr>
+                    <tr><td className="label">Cambiaron de ganador<Ayuda clave="cambio_ganador" /></td>{celda((r) => r.resumen!.comparables ? <>{pct((100 * r.resumen!.cambiaron) / r.resumen!.comparables, 0)} <span className="text-xs" style={{ color: "var(--fg-mute)" }}>{r.resumen!.comparables} comp.{r.anio_anterior ? ` vs ${r.anio_anterior}` : ""}</span></> : "—")}</tr>
+                    <tr><td className="label">{enfoque === "general" ? "Muy reñidas (< 5 pts)" : <>Reñidas para <span style={{ color: enf.color }}>{enf.t}</span></>}<Ayuda clave={enfoque === "general" ? "reñidas" : "competitividad_enfoque"} /></td>
+                      {celda((r) => enfoque === "general" ? String(r.resumen!.clases["reñida"] ?? 0) : <>{(r.resumen!.clases["reñida_gana"] ?? 0) + (r.resumen!.clases["reñida_pierde"] ?? 0)} <span className="text-xs" style={{ color: "var(--fg-mute)" }}>gana {r.resumen!.clases["reñida_gana"] ?? 0} · pierde {r.resumen!.clases["reñida_pierde"] ?? 0}</span></>)}</tr>
+                    {filasComp.orden.map((b) => (
+                      <tr key={b}><td className="font-bold" style={{ color: BLOQUES[b]?.color }}>{BLOQUES[b]?.nombre ?? b}</td>
+                        {celda((r) => { const v = r.resumen!.bloques[b]; const t = filasComp.tot(r); return v ? <><b>{pct((100 * v) / t)}</b> <span className="text-xs" style={{ color: "var(--fg-mute)" }}>gana {r.resumen!.ganadores[b] ?? 0} secc.</span></> : "—"; })}</tr>
+                    ))}
+                    <tr><td className="label">Frente al país<Ayuda clave="frente_al_pais" /></td>
+                      {celda((r) => { const n = tend(r, "sigue") + tend(r, "parcial") + tend(r, "independiente"); return n ? <span className="text-xs">{(["sigue", "parcial", "independiente"] as const).map((v, i) => <span key={v}>{i ? " · " : ""}<b style={{ color: TEND[v].c }}>{TEND[v].t}</b> {pct((100 * tend(r, v)) / n, 0)}</span>)}</span> : "—"; })}</tr>
+                  </>;
+                })()}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Cada {modo === "municipio" ? "municipio" : "distrito"} se lee por separado, con sus propias secciones: las columnas no se suman. % por bloque sobre los votos a partidos de la suma de sus secciones; «gana» = secciones donde ese bloque fue primero. Reñidas y clases siguen al partido de enfoque. Lectura analítica, no oficial.</p>
+        </section>
+      )}
+      {cat && <ElegirDetalle ts={unidades} i={iU} onChange={(i) => { setIDet(i); setSecSel(0); setClase(""); }} estados={cat.estados} texto="Lectura por sección de" />}
+
       {error && <p role="alert" style={{ color: "var(--bad)" }}>{error}</p>}
-      {!d && !error && (modo === "distrito" ? !!distrito : !!sel.municipio) && <Cargando alto={320} />}
+      {!d && !error && !!unidad && <Cargando alto={320} />}
       {d && r && anio && (
         <div className="seg" role="tablist" aria-label="Vista">
           <button role="tab" aria-pressed={vista === "lectura"} onClick={() => setVista("lectura")}><BookOpen size={14} className="inline -mt-0.5 mr-1.5" />Lectura de {anio}</button>
@@ -140,8 +233,8 @@ export default function Secciones() {
         </div>
       )}
       {d && r && anio && vista === "estrategia" && cat && (
-        <EstrategiaSecciones eleccion={eleccion} anio={anio} municipio={modo === "municipio" ? sel.municipio : 0} distrito={modo === "distrito" ? distrito : 0}
-          elecciones={cat.elecciones} estado={sel.estado} />
+        <EstrategiaSecciones eleccion={eleccion} anio={anio} municipio={uMun} distrito={uDis}
+          elecciones={cat.elecciones} estado={uEst} />
       )}
       {d && !r && <p className="material p-6">No hay resultados por sección para esta combinación. Prueba otro año o cargo.</p>}
       {d && r && vista === "lectura" && (
@@ -171,8 +264,8 @@ export default function Secciones() {
           {!!secSel && <EdadSeccion seccionId={secSel} corteInicial={d.corte_edad} />}
           {!!secSel && <TendenciaSeccion seccionId={secSel} />}
           {anio && <PerfilParticipacion secciones={filas} universo={(d?.secciones ?? []).filter((s) => !clase || s.clase === clase)} resaltar={secSel} onElegir={setSecSel} corte={d.corte_edad} anio={anio} filtro={filtrado ? [clase ? ETIQ_CLASE[clase as Clase].t : "", secSel ? `sección ${secSel % 10000}` : ""].filter(Boolean).join(" · ") : ""} />}
-          {anio && sel.estado > 0 && <PerfilCenso secciones={(d?.secciones ?? []).filter((s) => !clase || s.clase === clase)} estado={sel.estado} anio={anio} resaltar={secSel} onElegir={setSecSel}
-            nombreEstado={cat?.estados.find((e) => e.id_estado === sel.estado)?.nombre_corto ?? "el estado"} />}
+          {anio && uEst > 0 && <PerfilCenso secciones={(d?.secciones ?? []).filter((s) => !clase || s.clase === clase)} estado={uEst} anio={anio} resaltar={secSel} onElegir={setSecSel}
+            nombreEstado={cat?.estados.find((e) => e.id_estado === uEst)?.nombre_corto ?? "el estado"} />}
           <section className="material p-4 overflow-auto max-h-[560px]">
             <table className="t">
               <thead><tr><th>Sección</th><th>Ganador</th><th>Bloque<Ayuda clave="bloque" /></th><th>Margen<Ayuda clave="margen" /></th><th>{enfoque === "general" ? <>Clase<Ayuda clave="competitividad" /></> : <>Clase · <span style={{ color: enf.color }}>{enf.t}</span><Ayuda clave="competitividad_enfoque" /></>}</th><th>Particip.<Ayuda clave="participacion" /></th><th>Lista nominal</th><th>% mujeres<Ayuda clave="mujeres" /></th><th>Edad media<Ayuda clave="edad_media" /></th><th>18–29<Ayuda clave="jovenes" /></th><th>65+<Ayuda clave="mayores" /></th>{(d.anios_anteriores ?? []).map((a) => <th key={a}>Ganó en {a}</th>)}<th>Continuidad<Ayuda clave="continuidad" /></th><th >Frente al país<Ayuda clave="frente_al_pais" /></th></tr></thead>
