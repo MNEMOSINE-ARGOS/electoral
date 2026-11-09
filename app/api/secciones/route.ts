@@ -1,24 +1,29 @@
 import { NextResponse } from "next/server";
 import { q } from "@/lib/db";
+import { claves } from "@/lib/params";
 import { familia, indicadores, porBloque, porCandidatura, claseUnidad, esEnfoque } from "@/lib/analisis";
 
 // Lectura seccional de UNA elección (tipo + año) dentro de un municipio o un distrito.
 // ?eleccion=diputados_federales&anio=2024&municipio=5035   |   ?eleccion=diputados_federales&anio=2024&distrito=503
+// Con distrito y municipio (uno o varios, separados por coma): las secciones del cruce, el distrito dentro de esos municipios.
 // Cada sección se compara solo con la elección anterior DEL MISMO TIPO. La sección no es una unidad estable entre años
 // (reseccionamiento): si no existe en la elección anterior, se marca sin comparación.
 export async function GET(req: Request) {
   const u = new URL(req.url);
   const eleccion = u.searchParams.get("eleccion") || "presidente";
   const anio = Number(u.searchParams.get("anio"));
-  const mun = Number(u.searchParams.get("municipio") || 0);
+  const muns = claves(u.searchParams.get("municipio")), mun = muns[0] ?? 0;
   const dis = Number(u.searchParams.get("distrito") || 0);
   const enfoqueP = u.searchParams.get("enfoque"); const enfoque = esEnfoque(enfoqueP) ? enfoqueP : "general";
   if (!anio || (!mun && !dis)) return NextResponse.json({ error: "Faltan anio y municipio o distrito" }, { status: 400 });
   const local = eleccion.startsWith("diputados_locales");
-  const col = mun ? "clave_inegi" : local ? "id_distrito_local" : "id_distrito_federal";
+  const colDis = local ? "id_distrito_local" : "id_distrito_federal";
+  // Distrito (con municipios: el cruce) o municipios
+  const donde = dis ? `${colDis} = $3${muns.length ? " AND clave_inegi = ANY($4::int[])" : ""}` : "clave_inegi = ANY($3::int[])";
+  const pBase: unknown[] = dis ? (muns.length ? [eleccion, anio, dis, muns] : [eleccion, anio, dis]) : [eleccion, anio, muns];
   const base = await q<{ totales_id: string; seccion_id: string; id_estado: number; votos_totales: string | null; lista_nominal: string | null; confianza: string | null; seccion_confiable: boolean }>(
     `SELECT totales_id, seccion_id, id_estado, votos_totales, lista_nominal, confianza, seccion_confiable FROM sec_resumen
-     WHERE eleccion = $1 AND anio = $2 AND extraordinaria = false AND ${col} = $3 ORDER BY seccion_id LIMIT 2500`, [eleccion, anio, mun || dis]);
+     WHERE eleccion = $1 AND anio = $2 AND extraordinaria = false AND ${donde} ORDER BY seccion_id LIMIT 2500`, pBase);
   if (!base.length) return NextResponse.json({ eleccion, anio, secciones: [], resumen: null });
   const tids = base.map((b) => b.totales_id);
   const votos = await q<{ totales_id: number | string; partido: string; votos: string }>(

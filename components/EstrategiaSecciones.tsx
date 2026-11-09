@@ -40,8 +40,9 @@ function medir(fam: Record<string, number>, f: string) {
   return { pF: t ? (100 * vF) / t : 0, pR: t ? (100 * rv) / t : 0, vF, vR: rv, rival: rk };
 }
 
-export function EstrategiaSecciones({ eleccion, anio, municipio, distrito, elecciones, estado }: {
-  eleccion: string; anio: number; municipio: number; distrito: number; elecciones: EleccionCat[]; estado: number;
+/** `enMunicipios` («5035» o «5035,5030»), con un distrito: solo las secciones del cruce distrito × municipios. */
+export function EstrategiaSecciones({ eleccion, anio, municipio, distrito, enMunicipios = "", elecciones, estado }: {
+  eleccion: string; anio: number; municipio: number; distrito: number; enMunicipios?: string; elecciones: EleccionCat[]; estado: number;
 }) {
   const [e2, setE2] = useState(eleccion);
   const [a2, setA2] = useState(0);
@@ -65,8 +66,8 @@ export function EstrategiaSecciones({ eleccion, anio, municipio, distrito, elecc
   useEffect(() => {
     if (!a2) return;
     setD(null);
-    api<{ secciones: Fila[]; sin_par: number }>(`/api/comparar-secciones?eleccion=${eleccion}&anio=${anio}&eleccion2=${e2}&anio2=${a2}&${municipio ? `municipio=${municipio}` : `distrito=${distrito}`}`).then(setD);
-  }, [eleccion, anio, e2, a2, municipio, distrito]);
+    api<{ secciones: Fila[]; sin_par: number }>(`/api/comparar-secciones?eleccion=${eleccion}&anio=${anio}&eleccion2=${e2}&anio2=${a2}&${municipio ? `municipio=${municipio}` : `distrito=${distrito}${enMunicipios ? `&municipio=${enMunicipios}` : ""}`}`).then(setD);
+  }, [eleccion, anio, e2, a2, municipio, distrito, enMunicipios]);
 
   // Fuerzas presentes (por partido que encabeza la candidatura)
   const fuerzas = useMemo(() => {

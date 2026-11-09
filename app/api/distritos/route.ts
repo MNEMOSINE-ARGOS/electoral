@@ -4,7 +4,8 @@ import { claves } from "@/lib/params";
 import { indicadores, porBloque, porCandidatura, claseUnidad, esEnfoque } from "@/lib/analisis";
 
 // Distritos de UNA elección (tipo + año). Diputados federales/presidente/senado → distrito federal; diputados locales → distrito local.
-// ?eleccion=diputados_federales&anio=2024[&estado=5[,19…]]
+// ?eleccion=diputados_federales&anio=2024[&estado=5[,19…]][&municipio=5035[,…]]
+// Con municipio: solo los distritos que tienen secciones en él (cada distrito se lee completo, con todos sus municipios).
 export async function GET(req: Request) {
   const u = new URL(req.url);
   const eleccion = u.searchParams.get("eleccion") || "diputados_federales";
@@ -15,8 +16,15 @@ export async function GET(req: Request) {
   const params: unknown[] = [eleccion, anio];
   const fe = estados.length ? " AND id_estado = ANY($3::int[])" : "";
   if (estados.length) params.push(estados);
+  const municipios = claves(u.searchParams.get("municipio"));
+  let fm = "";
+  if (municipios.length) {
+    params.push(municipios);
+    const col = eleccion.startsWith("diputados_locales") ? "id_distrito_local" : "id_distrito_federal";
+    fm = ` AND id_distrito IN (SELECT ${col} FROM sec_resumen WHERE eleccion = $1 AND anio = $2 AND extraordinaria = false AND clave_inegi = ANY($${params.length}::int[]))`;
+  }
   const tot = await q<{ id_distrito: number; id_estado: number; secciones: string; votos_totales: string | null; lista_nominal: string | null; confianza: string | null; tipo: string; fuente: string }>(
-    `SELECT id_distrito, id_estado, secciones, votos_totales, lista_nominal, confianza, tipo, fuente FROM agg_dis_totales WHERE eleccion = $1 AND anio = $2 AND extraordinaria = false${fe} ORDER BY id_distrito`, params);
+    `SELECT id_distrito, id_estado, secciones, votos_totales, lista_nominal, confianza, tipo, fuente FROM agg_dis_totales WHERE eleccion = $1 AND anio = $2 AND extraordinaria = false${fe}${fm} ORDER BY id_distrito`, params);
   const ids = tot.map((t) => t.id_distrito);
   const votos = ids.length ? await q<{ id_distrito: number; partido: string; votos: string }>(
     "SELECT id_distrito, partido, votos FROM agg_dis_votos WHERE eleccion = $1 AND anio = $2 AND extraordinaria = false AND id_distrito = ANY($3::int[])", [eleccion, anio, ids]) : [];

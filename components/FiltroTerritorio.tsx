@@ -17,13 +17,15 @@ export const MAX_TERR = 8;
 
 export const estadoDe = { municipio: (id: number) => Math.floor(id / 1000), distrito: (id: number) => Math.floor(id / 100), seccion: (id: number) => Math.floor(id / 10000) };
 
-/** Territorios que se analizan: los del nivel más específico con algo elegido (secciones > municipios o distritos > entidades > Nacional). */
+/** Territorios que se analizan: los del nivel más específico con algo elegido, en el orden del filtro
+ *  (secciones > distritos > municipios > entidades > Nacional). Un distrito se analiza completo aunque haya municipios elegidos:
+ *  el municipio solo acota la lista de distritos (un distrito puede abarcar varios municipios). */
 export function territorios(f: FiltroT, estados: Estado[]): Terr[] {
   const ab = (e: number) => estados.find((x) => x.id_estado === e)?.abreviatura ?? "";
   const nom = (e: number) => estados.find((x) => x.id_estado === e)?.nombre_corto ?? "";
   if (f.secciones.length) return f.secciones.map((s) => ({ ...NAC, estado: estadoDe.seccion(s), seccion: s, ctx: f.nombres[`s${s}`] ?? ab(estadoDe.seccion(s)) }));
-  if (f.municipios.length) return f.municipios.map((m) => ({ ...NAC, estado: estadoDe.municipio(m), municipio: m, nombre: f.nombres[`m${m}`] ?? String(m) }));
   if (f.distritos.length) return f.distritos.map((d) => ({ ...NAC, estado: estadoDe.distrito(d), distrito: d, nombre: `${ab(estadoDe.distrito(d))}-${d % 100}` }));
+  if (f.municipios.length) return f.municipios.map((m) => ({ ...NAC, estado: estadoDe.municipio(m), municipio: m, nombre: f.nombres[`m${m}`] ?? String(m) }));
   if (f.estados.length) return f.estados.map((e) => ({ ...NAC, estado: e, nombre: nom(e) }));
   return [NAC];
 }
@@ -52,8 +54,9 @@ export function nombreCorto(t: Terr, estados: Estado[]) {
 }
 export const claveTerr = (t: Terr) => `${t.estado}-${t.distrito}-${t.municipio}-${t.seccion}`;
 
-/** Entidad → Distrito (federal o local, según el cargo) o Municipio → Sección, con autocompletado y selección múltiple en cada nivel.
- *  Las listas de distritos, municipios y secciones muestran solo los de las entidades elegidas (y las secciones, solo las de los municipios o distritos elegidos).
+/** Siempre en este orden: Entidad → Municipio → Distrito (federal o local, según el cargo) → Sección, con autocompletado y selección múltiple.
+ *  Cada lista muestra solo lo que cae dentro de lo elegido antes: municipios de las entidades, distritos con secciones en los municipios
+ *  y secciones del cruce municipio × distrito.
  *  `anio` define las opciones de distritos y secciones; al cambiar de elección se quitan los distritos y secciones que ya no existen. */
 export function FiltroTerritorio({ estados, cargo, anio, valor, onChange }: { estados: Estado[]; cargo: string; anio: number | null; valor: FiltroT; onChange: (f: FiltroT) => void }) {
   const [optMun, setOptMun] = useState<Opcion[]>([]);
@@ -76,19 +79,19 @@ export function FiltroTerritorio({ estados, cargo, anio, valor, onChange }: { es
   useEffect(() => {
     if (!est || !anio || !conDistrito) { setOptDis([]); return; }
     let vivo = true;
-    api<{ opciones: Opcion[] }>(`/api/opciones?tipo=distrito&eleccion=${cargo}&anio=${anio}&estado=${est}`).then((d) => {
+    api<{ opciones: Opcion[] }>(`/api/opciones?tipo=distrito&eleccion=${cargo}&anio=${anio}&estado=${est}${mun ? `&municipio=${mun}` : ""}`).then((d) => {
       if (!vivo) return;
       setOptDis(d.opciones.map((o) => (varios ? { ...o, etiqueta: `${ab(estadoDe.distrito(o.valor))} · ${o.etiqueta}` } : o)));
-      // El distrito elegido no existe en esta elección (otro mapa distrital u otro año): se quita
+      // El distrito elegido no existe en esta elección (otro mapa distrital u otro año) o no toca los municipios elegidos: se quita
       const v = ultimo.current, quedan = v.distritos.filter((x) => d.opciones.some((o) => o.valor === x));
       if (quedan.length !== v.distritos.length) onChange({ ...v, distritos: quedan, secciones: quedan.length ? v.secciones : [] });
     });
     return () => { vivo = false; };
-  }, [est, anio, cargo, varios]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [est, mun, anio, cargo, varios]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!est || !anio) { setOptSec([]); return; }
     let vivo = true;
-    const amb = mun ? `&municipio=${mun}` : dis ? `&distrito=${dis}` : "";
+    const amb = `${mun ? `&municipio=${mun}` : ""}${dis ? `&distrito=${dis}` : ""}`;
     api<{ opciones: Opcion[] }>(`/api/opciones?tipo=seccion&eleccion=${cargo}&anio=${anio}&estado=${est}${amb}`).then((d) => {
       if (!vivo) return;
       setOptSec(d.opciones.map((o) => (varios ? { ...o, sub: `${o.sub ?? ""} · ${ab(estadoDe.seccion(o.valor))}` } : o)));
@@ -125,24 +128,25 @@ export function FiltroTerritorio({ estados, cargo, anio, valor, onChange }: { es
         <BotonLimpiar visible={hayFiltro(valor)} onClick={() => onChange(SIN_FILTRO)} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <BuscadorMulti etiqueta="Entidad" todos="Todo el país" valores={valor.estados} ancho="min-w-0" max={MAX_TERR}
+        <BuscadorMulti etiqueta="1 · Entidad" todos="Todo el país" valores={valor.estados} ancho="min-w-0" max={MAX_TERR}
           opciones={estados.map((e) => ({ valor: e.id_estado, etiqueta: e.nombre_corto, sub: e.abreviatura }))} onChange={cambiaEstados} />
-        {conDistrito && (
-          <BuscadorMulti etiqueta={cargo === "diputados_locales_mr" ? "Distrito local" : "Distrito federal"} todos="Todos los distritos" valores={valor.distritos} ancho="min-w-0" max={MAX_TERR}
-            deshabilitado={sinEntidad} placeholder={sinEntidad ? "Elige una entidad" : "Todos los distritos"} opciones={optDis}
-            nombres={Object.fromEntries(valor.distritos.map((d) => [d, `${ab(estadoDe.distrito(d))}-${d % 100}`]))}
-            onChange={(v) => onChange({ ...valor, distritos: v, municipios: [], secciones: v.length || !valor.distritos.length ? valor.secciones : [], nombres: nombres("d", v, optDis, valor.nombres) })} />
-        )}
-        <BuscadorMulti etiqueta="Municipio" todos="Todos los municipios" valores={valor.municipios} ancho="min-w-0" max={MAX_TERR}
+        <BuscadorMulti etiqueta="2 · Municipio" todos="Todos los municipios" valores={valor.municipios} ancho="min-w-0" max={MAX_TERR}
           deshabilitado={sinEntidad} placeholder={sinEntidad ? "Elige una entidad" : "Todos los municipios"} opciones={optMun} nombres={etiquetas("m")}
-          onChange={(v) => onChange({ ...valor, municipios: v, distritos: [], nombres: nombres("m", v, optMun, valor.nombres) })} />
-        <BuscadorMulti etiqueta="Sección" todos="Todas las secciones" valores={valor.secciones} ancho="min-w-0" max={MAX_TERR}
+          onChange={(v) => onChange({ ...valor, municipios: v, nombres: nombres("m", v, optMun, valor.nombres) })} />
+        {conDistrito && (
+          <BuscadorMulti etiqueta={`3 · ${cargo === "diputados_locales_mr" ? "Distrito local" : "Distrito federal"}`} todos={valor.municipios.length ? "Todos los del municipio" : "Todos los distritos"} valores={valor.distritos} ancho="min-w-0" max={MAX_TERR}
+            deshabilitado={sinEntidad} placeholder={sinEntidad ? "Elige una entidad" : valor.municipios.length ? `${optDis.length} tocan ${valor.municipios.length > 1 ? "los municipios" : "el municipio"}` : "Todos los distritos"} opciones={optDis}
+            nombres={Object.fromEntries(valor.distritos.map((d) => [d, `${ab(estadoDe.distrito(d))}-${d % 100}`]))}
+            onChange={(v) => onChange({ ...valor, distritos: v, secciones: v.length || !valor.distritos.length ? valor.secciones : [], nombres: nombres("d", v, optDis, valor.nombres) })} />
+        )}
+        <BuscadorMulti etiqueta={`${conDistrito ? 4 : 3} · Sección`} todos="Todas las secciones" valores={valor.secciones} ancho="min-w-0" max={MAX_TERR}
           deshabilitado={sinEntidad} placeholder={sinEntidad ? "Elige una entidad" : "Todas las secciones"} opciones={optSec} nombres={etiquetas("s")}
           onChange={(v) => onChange({ ...valor, secciones: v, nombres: nombres("s", v, optSec, valor.nombres) })} />
       </div>
       <p className="text-xs" style={{ color: "var(--fg-mute)" }}>
-        Escribe para buscar; puedes marcar varios en cada nivel. Las listas muestran solo lo que está dentro de las entidades elegidas.
-        Distrito y municipio son alternativos (un distrito puede abarcar varios municipios); la sección se busca dentro de lo elegido.
+        En orden; escribe para buscar y marca varios en cada nivel. Cada lista muestra solo lo que cae dentro de lo elegido antes
+        (con un municipio, solo los distritos que lo tocan; las secciones, las del municipio y el distrito).
+        {valor.municipios.length > 0 && valor.distritos.length > 0 && <> El distrito se lee completo: puede abarcar también otros municipios.</>}
         {total > 1 && <> <b style={{ color: "var(--fg-soft)" }}>{total} territorios: se muestran lado a lado.</b></>}
       </p>
     </div>

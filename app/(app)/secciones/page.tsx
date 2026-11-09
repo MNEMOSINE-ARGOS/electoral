@@ -46,7 +46,6 @@ export default function Secciones() {
   const { enfoque } = useEnfoque();
   const enf = ENFOQUES.find((e) => e.id === enfoque)!;
   const ultimo = useRef("");
-  const [modo, setModo] = useState<"municipio" | "distrito">("municipio");
   const [eleccion, setEleccion] = useState("diputados_federales");
   const [anio, setAnio] = useState<number | null>(null);
   const [sel, setSel] = useState<Sel>(INICIAL);
@@ -62,50 +61,59 @@ export default function Secciones() {
   const [error, setError] = useState("");
 
   const local = eleccion.startsWith("diputados_locales");
+  // Cargos con distrito: el filtro va Entidad → Municipio → Distrito
+  const conDistrito = eleccion === "diputados_federales" || eleccion === "presidente" || local;
   // Parámetros de enlace (desde «Distritos»)
   useEffect(() => {
     const p = new URLSearchParams(location.search);
     // ?municipio= y ?distrito= aceptan una o varias claves separadas por coma; la entidad sale de la clave
     const lista = (k: string) => (p.get(k) ?? "").split(",").map(Number).filter((n) => n > 0);
     const muns = lista("municipio"), dists = lista("distrito");
-    if (muns.length) { setEleccion(p.get("eleccion") || "diputados_federales"); setModo("municipio"); setSel({ estados: [...new Set(muns.map((m) => Math.floor(m / 1000)))], municipios: muns, nombres: {} }); if (p.get("anio")) setAnio(Number(p.get("anio"))); }
-    if (dists.length) { setModo("distrito"); setEleccion(p.get("eleccion") || "diputados_federales"); setSel({ estados: [...new Set(dists.map((x) => Math.floor(x / 100)))], municipios: [], nombres: {} }); setDistSel(dists); if (p.get("anio")) setAnio(Number(p.get("anio"))); }
+    if (!muns.length && !dists.length) return;
+    setEleccion(p.get("eleccion") || "diputados_federales");
+    if (p.get("anio")) setAnio(Number(p.get("anio")));
+    setSel({ estados: [...new Set([...muns.map((m) => Math.floor(m / 1000)), ...dists.map((x) => Math.floor(x / 100))])], municipios: muns, nombres: {} });
+    setDistSel(dists);
   }, []);
   const anios = useMemo(() => (cat?.elecciones ?? []).filter((e) => e.eleccion === eleccion && !e.extraordinaria && e.anio >= (local || eleccion === "gobernador" || eleccion === "alcaldes" ? 2015 : 1994)).map((e) => e.anio).filter((a, i, arr) => arr.indexOf(a) === i).sort((a, b) => b - a), [cat, eleccion, local]);
   useEffect(() => { if (anios.length && (anio === null || !anios.includes(anio))) setAnio(anios[0]); }, [anios, anio]);
-  const est = sel.estados.join(",");
+  const est = sel.estados.join(","), munsSel = sel.municipios.join(",");
   useEffect(() => {
-    if (modo !== "distrito" || !est || anio === null) { setDistritos([]); return; }
+    if (!conDistrito || !est || anio === null) { setDistritos([]); return; }
     let vivo = true;
-    api<{ distritos: { id_distrito: number; n: number; id_estado: number }[] }>(`/api/distritos?eleccion=${eleccion}&anio=${anio}&estado=${est}`).then((r) => {
+    // Con municipios elegidos, solo los distritos que los tocan
+    api<{ distritos: { id_distrito: number; n: number; id_estado: number }[] }>(`/api/distritos?eleccion=${eleccion}&anio=${anio}&estado=${est}${munsSel ? `&municipio=${munsSel}` : ""}`).then((r) => {
       if (!vivo) return;
       setDistritos(r.distritos);
-      // Quedan los distritos que existen en esta elección; si no queda ninguno, el primero de la lista
-      setDistSel((x) => { const q = x.filter((id) => r.distritos.some((y) => y.id_distrito === id)); return q.length ? q : r.distritos[0] ? [r.distritos[0].id_distrito] : []; });
+      // Quedan los distritos que existen en esta elección y tocan los municipios elegidos
+      setDistSel((x) => x.filter((id) => r.distritos.some((y) => y.id_distrito === id)));
     });
     return () => { vivo = false; };
-  }, [modo, est, eleccion, anio]);
+  }, [conDistrito, est, munsSel, eleccion, anio]);
 
-  // Unidades a analizar (cada una por separado): municipios o distritos elegidos
+  // Unidades a analizar (cada una por separado): los distritos elegidos (dentro de los municipios elegidos, si hay) o, si no, los municipios
   const abEst = (e: number) => cat?.estados.find((x) => x.id_estado === e)?.abreviatura ?? "";
   const variosEst = sel.estados.length > 1;
-  const unidades: Terr[] = useMemo(() => modo === "municipio"
-    ? sel.municipios.map((m) => ({ ...NAC, estado: Math.floor(m / 1000), municipio: m, nombre: sel.nombres[m] ?? String(m) }))
-    : distSel.map((x) => ({ ...NAC, estado: Math.floor(x / 100), distrito: x, nombre: `${abEst(Math.floor(x / 100))}-${x % 100}` })),
-  [modo, sel, distSel, cat]); // eslint-disable-line react-hooks/exhaustive-deps
+  const enMuns = sel.municipios.length ? ` · en ${sel.municipios.length > 1 ? `${sel.municipios.length} municipios` : sel.nombres[sel.municipios[0]] ?? "el municipio"}` : "";
+  const unidades: Terr[] = useMemo(() => distSel.length
+    ? distSel.map((x) => ({ ...NAC, estado: Math.floor(x / 100), distrito: x, nombre: `${abEst(Math.floor(x / 100))}-${x % 100}${enMuns}` }))
+    : sel.municipios.map((m) => ({ ...NAC, estado: Math.floor(m / 1000), municipio: m, nombre: sel.nombres[m] ?? String(m) })),
+  [sel, distSel, cat]); // eslint-disable-line react-hooks/exhaustive-deps
   const iU = Math.min(iDet, Math.max(unidades.length - 1, 0));
   const unidad = unidades[iU] ?? null;
   const uMun = unidad?.municipio ?? 0, uDis = unidad?.distrito ?? 0, uEst = unidad?.estado ?? 0;
   const nomU = (t: Terr) => (t.municipio ? `${t.nombre}${variosEst ? ` (${abEst(t.estado)})` : ""}` : `Distrito ${t.nombre}`);
+  // Parámetro de la API: el municipio, o el distrito (con municipios elegidos, el cruce)
+  const paramU = (t: Terr) => (t.municipio ? `municipio=${t.municipio}` : `distrito=${t.distrito}${munsSel ? `&municipio=${munsSel}` : ""}`);
 
   // Lado a lado: el resumen de cada unidad (una petición por unidad; nunca se suman)
-  const claveU = unidades.map((t) => t.municipio || t.distrito).join(",");
+  const claveU = unidades.map(paramU).join("|");
   useEffect(() => {
     if (anio === null || unidades.length < 2) { setComp({}); return; }
     let vivo = true;
     setComp({});
     for (const t of unidades) {
-      const k = t.municipio ? `municipio=${t.municipio}` : `distrito=${t.distrito}`;
+      const k = paramU(t);
       api<Resp>(`/api/secciones?eleccion=${eleccion}&anio=${anio}&${k}&enfoque=${enfoque}`)
         .then((r) => vivo && setComp((c) => ({ ...c, [k]: r }))).catch(() => vivo && setComp((c) => ({ ...c, [k]: null })));
     }
@@ -114,14 +122,14 @@ export default function Secciones() {
 
   useEffect(() => {
     if (anio === null) return;
-    const territorio = uMun ? `municipio=${uMun}` : uDis ? `distrito=${uDis}` : "";
+    const territorio = uMun ? `municipio=${uMun}` : uDis ? `distrito=${uDis}${munsSel ? `&municipio=${munsSel}` : ""}` : "";
     if (!territorio) { setD(null); return; }
     // Cambiar solo el enfoque conserva la sección elegida; cambiar territorio o elección la limpia
     const clave = `${eleccion}|${anio}|${territorio}`;
     setD(null); setError(""); setClase("");
     if (clave !== ultimo.current) { setSecSel(0); ultimo.current = clave; }
     api<Resp>(`/api/secciones?eleccion=${eleccion}&anio=${anio}&${territorio}&enfoque=${enfoque}`).then(setD).catch((e) => setError(e.message));
-  }, [uMun, uDis, eleccion, anio, enfoque]);
+  }, [uMun, uDis, munsSel, eleccion, anio, enfoque]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function abrir(id: number) { setFicha(null); setFicha(await api<Ficha>(`/api/seccion?id=${id}`)); }
   const filas = (d?.secciones ?? []).filter((s) => (!clase || s.clase === clase) && (!secSel || s.seccion_id === secSel));
@@ -145,23 +153,23 @@ export default function Secciones() {
   }, [r, filas, filtrado]);
   const totB = rf ? Object.values(rf.bloques).reduce((a, b) => a + b, 0) : 0;
   // Estado inicial de la pantalla (Torreón, diputaciones federales, el año más reciente): «Limpiar filtros» regresa aquí
-  const sucio = eleccion !== "diputados_federales" || modo !== "municipio" || sel.estados.join() !== "5" || sel.municipios.join() !== "5035" || distSel.length > 0 || !!clase || !!secSel
+  const sucio = eleccion !== "diputados_federales" || sel.estados.join() !== "5" || sel.municipios.join() !== "5035" || distSel.length > 0 || !!clase || !!secSel
     || vista !== "lectura" || iDet !== 0 || (anio !== null && anios.length > 0 && anio !== anios[0]);
   function limpiar() {
-    setEleccion("diputados_federales"); setAnio(null); setModo("municipio"); setSel(INICIAL); setDistSel([]); setIDet(0);
+    setEleccion("diputados_federales"); setAnio(null); setSel(INICIAL); setDistSel([]); setIDet(0);
     setClase(""); setSecSel(0); setVista("lectura"); setFicha(null);
   }
 
   // Tabla comparativa: una columna por unidad
   const filasComp = useMemo(() => {
-    const res = unidades.map((t) => { const k = t.municipio ? `municipio=${t.municipio}` : `distrito=${t.distrito}`; return { t, k, r: comp[k] }; });
+    const res = unidades.map((t) => { const k = paramU(t); return { t, k, r: comp[k] }; });
     const bloques = new Set<string>();
     for (const x of res) for (const b of Object.keys(x.r?.resumen?.bloques ?? {})) bloques.add(b);
     const tot = (r: Resp | null | undefined) => Object.values(r?.resumen?.bloques ?? {}).reduce((a, b) => a + b, 0);
     const peso = (b: string) => res.reduce((s, x) => s + (x.r?.resumen?.bloques[b] ?? 0) / (tot(x.r) || 1), 0);
     const orden = [...bloques].sort((a, b) => peso(b) - peso(a));
     return { res, orden, tot };
-  }, [unidades, comp]);
+  }, [unidades, comp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -171,30 +179,27 @@ export default function Secciones() {
       </header>
       <section className="material p-4 space-y-3">
         <div className="flex justify-end -mb-1"><BotonLimpiar visible={sucio} onClick={limpiar} /></div>
-        <div className="flex flex-wrap gap-2">{CARGOS.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => { setEleccion(t); setAnio(null); if (t.startsWith("diputados") === false) setModo("municipio"); }}>{nombreEleccion[t] ?? t}</button>)}</div>
+        <div className="flex flex-wrap gap-2">{CARGOS.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => { setEleccion(t); setAnio(null); }}>{nombreEleccion[t] ?? t}</button>)}</div>
         <div className="flex flex-wrap gap-2">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
         <AvisoSiPrep eleccion={eleccion} anio={anio} />
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Demarcación">
-          <button className="chip" aria-pressed={modo === "municipio"} onClick={() => setModo("municipio")}>Por municipio</button>
-          {(eleccion === "diputados_federales" || eleccion === "presidente" || local) && <button className="chip" aria-pressed={modo === "distrito"} onClick={() => setModo("distrito")}>Por distrito {local ? "local" : "federal"}</button>}
-        </div>
         <div className="flex flex-wrap gap-3 items-end">
-          {cat && <Territorio estados={cat.estados} valor={sel} onChange={(s) => { setSel(s); setDistSel((x) => x.filter((id) => s.estados.includes(Math.floor(id / 100)))); }} permiteNacional={false} conMunicipio={modo === "municipio"} />}
-          {modo === "distrito" && <BuscadorMulti etiqueta={local ? "Distrito local" : "Distrito federal"} ancho="w-64" todos="Ninguno" valores={distSel} max={MAX_TERR}
-            deshabilitado={!sel.estados.length} placeholder={sel.estados.length ? "Escribe el número…" : "Elige una entidad"}
+          {cat && <Territorio estados={cat.estados} valor={sel} onChange={(s) => { setSel(s); setDistSel((x) => x.filter((id) => s.estados.includes(Math.floor(id / 100)))); }} permiteNacional={false} />}
+          {conDistrito && <BuscadorMulti etiqueta={local ? "Distrito local" : "Distrito federal"} ancho="w-64" todos={sel.municipios.length ? "Todos los del municipio" : "Ninguno"} valores={distSel} max={MAX_TERR}
+            deshabilitado={!sel.estados.length} placeholder={!sel.estados.length ? "Elige una entidad" : sel.municipios.length ? `${distritos.length} tocan ${sel.municipios.length > 1 ? "los municipios" : "el municipio"}` : "Escribe el número…"}
             opciones={distritos.map((x) => ({ valor: x.id_distrito, etiqueta: `${variosEst ? `${abEst(x.id_estado)} · ` : ""}Distrito ${x.n}` }))}
             nombres={Object.fromEntries(distSel.map((x) => [x, `${abEst(Math.floor(x / 100))}-${x % 100}`]))} onChange={setDistSel} />}
         </div>
         <p className="text-xs" style={{ color: "var(--fg-mute)" }}>
-          Puedes marcar varias entidades y varios {modo === "municipio" ? "municipios" : "distritos"}: las listas muestran solo los de las entidades elegidas.
+          En orden: entidad → municipio{conDistrito ? " → distrito" : ""}; cada lista muestra solo lo que cae dentro de lo elegido antes (con un municipio, solo los distritos que lo tocan).
+          {distSel.length > 0 && sel.municipios.length > 0 && <> Con municipio y distrito se leen las secciones del cruce: la parte del distrito dentro de {sel.municipios.length > 1 ? "esos municipios" : "ese municipio"}.</>}
           {unidades.length > 1 && <> Con {unidades.length} se comparan lado a lado; abajo eliges cuál ver en detalle.</>}
-          {!unidades.length && <> Elige al menos un {modo === "municipio" ? "municipio" : "distrito"}: la lectura por sección es de un municipio o distrito a la vez.</>}
+          {!unidades.length && <> Elige al menos un municipio{conDistrito ? " o un distrito" : ""}: la lectura por sección es de un territorio a la vez.</>}
         </p>
       </section>
 
       {unidades.length > 1 && anio && (
         <section className="material p-4 space-y-2">
-          <div><p className="label">Lado a lado · {nombreEleccion[eleccion] ?? eleccion} {anio}</p><h2 className="text-lg font-bold pt-0.5">{modo === "municipio" ? "Municipios" : "Distritos"} comparados</h2></div>
+          <div><p className="label">Lado a lado · {nombreEleccion[eleccion] ?? eleccion} {anio}</p><h2 className="text-lg font-bold pt-0.5">{distSel.length ? "Distritos" : "Municipios"} comparados</h2></div>
           <div className="overflow-x-auto">
             <table className="t">
               <thead><tr><th />{filasComp.res.map(({ t, k }) => <th key={k}>{nomU(t)}</th>)}</tr></thead>
@@ -219,7 +224,7 @@ export default function Secciones() {
               </tbody>
             </table>
           </div>
-          <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Cada {modo === "municipio" ? "municipio" : "distrito"} se lee por separado, con sus propias secciones: las columnas no se suman. % por bloque sobre los votos a partidos de la suma de sus secciones; «gana» = secciones donde ese bloque fue primero. Reñidas y clases siguen al partido de enfoque. Lectura analítica, no oficial.</p>
+          <p className="text-xs" style={{ color: "var(--fg-mute)" }}>Cada {distSel.length ? "distrito" : "municipio"} se lee por separado, con sus propias secciones: las columnas no se suman. % por bloque sobre los votos a partidos de la suma de sus secciones; «gana» = secciones donde ese bloque fue primero. Reñidas y clases siguen al partido de enfoque. Lectura analítica, no oficial.</p>
         </section>
       )}
       {cat && <ElegirDetalle ts={unidades} i={iU} onChange={(i) => { setIDet(i); setSecSel(0); setClase(""); }} estados={cat.estados} texto="Lectura por sección de" />}
@@ -233,7 +238,7 @@ export default function Secciones() {
         </div>
       )}
       {d && r && anio && vista === "estrategia" && cat && (
-        <EstrategiaSecciones eleccion={eleccion} anio={anio} municipio={uMun} distrito={uDis}
+        <EstrategiaSecciones eleccion={eleccion} anio={anio} municipio={uMun} distrito={uDis} enMunicipios={munsSel}
           elecciones={cat.elecciones} estado={uEst} />
       )}
       {d && !r && <p className="material p-6">No hay resultados por sección para esta combinación. Prueba otro año o cargo.</p>}

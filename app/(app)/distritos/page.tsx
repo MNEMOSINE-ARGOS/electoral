@@ -10,8 +10,8 @@ import { BLOQUES, ENFOQUES, nombreCandidatura, porBloque, porCandidatura, type C
 import { CeldaClase, ResumenClases, useEnfoque } from "@/components/Enfoque";
 import { Ayuda } from "@/components/Ayuda";
 import { colorPartido, nombreEleccion } from "@/lib/partidos";
-import { BotonLimpiar, MAX_TERR } from "@/components/FiltroTerritorio";
-import { BuscadorMulti } from "@/components/BuscadorMulti";
+import { BotonLimpiar } from "@/components/FiltroTerritorio";
+import { SEL_VACIA, Territorio, type Sel } from "@/components/Territorio";
 import { fmt, pct } from "@/lib/format";
 
 type Dist = {
@@ -31,8 +31,11 @@ export default function Distritos() {
   const enf = ENFOQUES.find((e) => e.id === enfoque)!;
   const [eleccion, setEleccion] = useState<string>("diputados_federales");
   const [anio, setAnio] = useState<number | null>(null);
-  const [estados, setEstados] = useState<number[]>([]);
+  // Entidad → Municipio: con municipios elegidos, solo los distritos que los tocan (cada distrito se lee completo)
+  const [terr, setTerr] = useState<Sel>(SEL_VACIA);
+  const estados = terr.estados;
   const estado = estados.join(","); // «5,19»: /api/distritos acepta varias entidades
+  const muns = terr.municipios.join(",");
   const [lista, setLista] = useState<Dist[] | null>(null);
   const [circ, setCirc] = useState<{ circunscripciones: Circ[]; aviso: string } | null>(null);
   const [sel, setSel] = useState<Dist | null>(null);
@@ -44,8 +47,8 @@ export default function Distritos() {
   useEffect(() => {
     if (anio === null) return;
     setLista(null); setSel(null); setHist(null);
-    api<{ distritos: Dist[] }>(`/api/distritos?eleccion=${eleccion}&anio=${anio}${estado ? `&estado=${estado}` : ""}&enfoque=${enfoque}`).then((d) => setLista(d.distritos));
-  }, [eleccion, anio, estado, enfoque]);
+    api<{ distritos: Dist[] }>(`/api/distritos?eleccion=${eleccion}&anio=${anio}${estado ? `&estado=${estado}` : ""}${muns ? `&municipio=${muns}` : ""}&enfoque=${enfoque}`).then((d) => setLista(d.distritos));
+  }, [eleccion, anio, estado, muns, enfoque]);
   useEffect(() => {
     if (anio === null || local) { setCirc(null); return; }
     api<{ circunscripciones: Circ[]; aviso: string }>(`/api/circunscripciones?eleccion=${eleccion}&anio=${anio}`).then(setCirc);
@@ -88,7 +91,7 @@ export default function Distritos() {
 
   // «Limpiar filtros»: diputados federales, el año más reciente, todo el país, sin distrito abierto
   const sucio = eleccion !== "diputados_federales" || estados.length > 0 || !!sel || (anio !== null && anios.length > 0 && anio !== anios[0]);
-  function limpiar() { setEleccion("diputados_federales"); setAnio(null); setEstados([]); setSel(null); setHist(null); }
+  function limpiar() { setEleccion("diputados_federales"); setAnio(null); setTerr(SEL_VACIA); setSel(null); setHist(null); }
 
   return (
     <>
@@ -102,10 +105,11 @@ export default function Distritos() {
         <div className="flex flex-wrap gap-2">{CARGOS.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => { setEleccion(t); setAnio(null); }}>{nombreEleccion[t]}{t === "presidente" ? " (por distrito)" : ""}</button>)}</div>
         <div className="flex flex-wrap gap-2">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
         <AvisoSiPrep eleccion={eleccion} anio={anio} />
-        <div className="max-w-md">
-          <BuscadorMulti etiqueta="Entidades" todos={local ? "Ninguna" : "Todo el país"} placeholder={local ? "Elige una o varias entidades" : "Todo el país"} valores={estados} max={MAX_TERR}
-            opciones={cats.map((e) => ({ valor: e.id_estado, etiqueta: e.nombre_corto, sub: e.abreviatura }))} onChange={setEstados} />
-        </div>
+        {cat && <Territorio estados={cats} valor={terr} onChange={setTerr} permiteNacional={!local} />}
+        <p className="text-xs" style={{ color: "var(--fg-mute)" }}>
+          En orden: entidad → municipio → distritos. Con un municipio, la lista muestra solo los distritos que lo tocan; cada distrito se lee completo
+          (puede abarcar también otros municipios) y «Secciones» abre solo su parte dentro de los municipios elegidos.
+        </p>
         {local && !estado && <p className="text-sm" style={{ color: "var(--warn)" }}>Los distritos locales son de cada estado y los años de elección varían por estado: elige una o varias entidades.</p>}
       </section>
 
@@ -165,7 +169,7 @@ export default function Distritos() {
                       <td>{d.margen_bloque === null ? "—" : d.margen_bloque.toFixed(1)}</td>
                       <td><CeldaClase clase={d.clase} margenEnfoque={d.margen_enfoque} pEnfoque={d.p_enfoque} /></td>
                       <td>{d.nep ? d.nep.toFixed(1) : "—"}</td><td>{pct(d.participacion)}</td><td>{d.secciones}</td>
-                      <td><Link className="chip" href={`/secciones?eleccion=${eleccion}&anio=${anio}&distrito=${d.id_distrito}&estado=${d.id_estado}`} onClick={(e) => e.stopPropagation()}>Secciones</Link></td>
+                      <td><Link className="chip" href={`/secciones?eleccion=${eleccion}&anio=${anio}&distrito=${d.id_distrito}${muns ? `&municipio=${muns}` : ""}&estado=${d.id_estado}`} onClick={(e) => e.stopPropagation()}>Secciones</Link></td>
                     </tr>
                   ))}
                 </tbody>

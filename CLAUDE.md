@@ -109,11 +109,19 @@ public/geo/           estados.geojson (nacional); <id_estado>/ = las 32 entidade
 
 **Filtros de territorio con selección múltiple** (todas las pantallas con filtro, salvo el mapa —que tiene su propio filtro en orden, ver `estados/`— y judicial):
 - `components/BuscadorMulti` (autocompletado que marca varias opciones; fichas debajo; máx. `MAX_TERR` = 8 por nivel).
-- `components/FiltroTerritorio` (entidad → distrito o municipio → sección; `FiltroT` con listas por nivel y `nombres`) y `components/Territorio` (entidad → municipio; `Sel`).
-  Las listas dependientes muestran **solo lo de las entidades elegidas** (y las secciones, solo las de los municipios o distritos elegidos); al cambiar de elección se quitan distritos y secciones que ya no existen.
-- `territorios()` / `lugares()` devuelven los territorios a analizar: los del nivel más específico con algo elegido. Con 2 o más se muestran **lado a lado** (cada uno por separado, nunca se suman)
+- **Orden fijo en todos los módulos (decisión del usuario): Entidad → Municipio → Distrito → Sección.** Distrito y municipio no se anidan
+  (un municipio grande tiene varios distritos y un distrito rural, varios municipios): el municipio **acota** la lista de distritos a los que lo tocan.
+- `components/FiltroTerritorio` (Resultados, Histórico; `FiltroT` con listas por nivel y `nombres`) y `components/Territorio` (entidad → municipio; `Sel`;
+  en «Lectura por sección» y «Distritos» va seguido del buscador de distritos).
+  Las listas dependientes muestran **solo lo que cae dentro de lo elegido antes**: municipios de las entidades, distritos con secciones en los municipios
+  y secciones del cruce municipio × distrito. Al cambiar de elección o de municipio se quitan los distritos y las secciones que ya no caben.
+- `territorios()` / `lugares()` devuelven los territorios a analizar: los del nivel más específico con algo elegido (sección > distrito > municipio > entidad).
+  En Resultados e Histórico un distrito se analiza **completo** aunque haya municipio (los agregados son por distrito; se avisa en la nota). En «Lectura por sección»
+  municipio + distrito = **las secciones del cruce** (`/api/secciones` y `/api/comparar-secciones` con `distrito` y `municipio`); «Distritos» enlaza así a sus secciones.
+  Con 2 o más se muestran **lado a lado** (cada uno por separado, nunca se suman)
   y `ElegirDetalle` decide cuál se ve con el detalle completo. Resultados: `components/LadoALadoResultados` (año en columnas + trayectoria de una fuerza, una línea por territorio).
-- `/api/municipios`, `/api/opciones` y `/api/distritos` aceptan `estado`, `municipio` y `distrito` como listas separadas por coma (`lib/params.ts`, `claves()`); las demás APIs siguen siendo de un territorio.
+- `/api/municipios`, `/api/opciones` y `/api/distritos` aceptan `estado`, `municipio` y `distrito` como listas separadas por coma (`lib/params.ts`, `claves()`;
+  `/api/distritos?municipio=` = los distritos que lo tocan); las demás APIs siguen siendo de un territorio, salvo el `municipio` del cruce en `/api/secciones` y `/api/comparar-secciones`.
 
 Patrón de las pantallas: `useEffect` → `api<T>(url)` (`lib/api.ts`) → `useMemo` para derivar. Los cálculos analíticos viven en `lib/` como **funciones puras** y se usan igual en servidor y cliente.
 
