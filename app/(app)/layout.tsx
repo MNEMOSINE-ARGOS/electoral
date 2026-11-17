@@ -66,7 +66,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <EnfoqueProvider>
     <ContextoProvider>
     <div className="min-h-screen">
-      <header ref={cabecera} className="material-bar sticky top-0 z-40 border-b" style={{ borderColor: "var(--line)" }}>
+      {/* En celular la barra no se queda fija: con logo, «Estás viendo», enfoque y menú mide ~170 px y el contenido pasaba por debajo */}
+      <header ref={cabecera} className="material-bar relative md:sticky top-0 z-40 border-b" style={{ borderColor: "var(--line)" }}>
         <div className="flex h-14 items-center justify-between gap-3 px-3 md:px-5">
           <div className="flex items-center gap-2 min-w-0">
             <button className={`${ghost} hidden md:grid`} onClick={alternar} aria-label={lateral ? "Contraer la barra lateral" : "Expandir la barra lateral"} style={{ color: "var(--fg-mute)" }}><PanelLeft size={18} /></button>

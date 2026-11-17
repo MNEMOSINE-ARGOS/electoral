@@ -40,7 +40,7 @@ export function BarraContexto() {
   return (
     <div className="barra-contexto" aria-label="Selección actual">
       <span className="label shrink-0 hidden sm:inline">Estás viendo</span>
-      <p className="flex flex-1 items-center gap-1 min-w-0 overflow-hidden whitespace-nowrap font-semibold" aria-live="polite">
+      <p className="flex flex-wrap sm:flex-nowrap flex-1 items-center gap-x-1 gap-y-0.5 min-w-0 sm:overflow-hidden sm:whitespace-nowrap font-semibold" aria-live="polite">
         {eleccion && <><span className="truncate">{eleccion}</span><span className="px-1" style={{ color: "var(--fg-mute)" }}>·</span></>}
         {ruta.map((t, i) => <span key={i} className="flex items-center gap-1 min-w-0">{i > 0 && <ChevronRight size={13} className="shrink-0" style={{ color: "var(--fg-mute)" }} />}<span className="truncate">{t}</span></span>)}
       </p>

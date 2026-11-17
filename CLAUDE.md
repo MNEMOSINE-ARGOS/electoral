@@ -63,13 +63,15 @@ app/(app)/            pantallas (cliente)
                       (API anios-mapa: entidades con votos en agg_est_votos, más PREP); con una entidad abierta, solo los años en que ella votó;
                       en cargos locales cada año dice cuántas entidades votaron
   distritos/          distritos federales y locales, circunscripciones
-  secciones/          lectura por sección, edad de la sección, tendencia frente al país, comparación y estrategia
+  secciones/          lectura por sección, edad de la sección, tendencia frente al país, comparación y estrategia. Sin territorio por omisión
+                      (decisión del usuario: ya no abre en Torreón); toma el de la selección compartida o pide elegir uno
   electorado/         lista nominal por edad y sexo, y los indicadores del Censo 2020 del territorio (components/PerfilCensoTerritorio,
                       API censo-territorio): escolaridad (también por sexo), ocupación, salud, vivienda, población y hogares, contra su estado y el país
   judicial/           elección judicial 2025 (votos por persona)
   usuarios/           solo superusuarios
   layout.tsx          barra superior (selector de enfoque, tema, cuenta, y la barra «Estás viendo»), barra lateral y ContextoProvider;
-                      mide el alto de la barra superior en --alto-cabecera (lo usan la barra lateral y el índice)
+                      mide el alto de la barra superior en --alto-cabecera (lo usan la barra lateral y el índice). La barra superior es fija
+                      solo desde md: en celular mide ~170 px y el contenido pasaba por debajo. Al cambiar de pantalla sube al inicio (salvo «atrás»)
 app/api/              rutas de datos (route handlers) y auth/
 components/           Contexto (selección compartida entre pantallas, decisión del usuario: cargo, año, entidades, municipios, distritos,
                       secciones; en sessionStorage; un enlace con ?cargo=&anio=&estado=&municipio=&distrito=&seccion= la reemplaza y los parámetros se
@@ -79,7 +81,8 @@ components/           Contexto (selección compartida entre pantallas, decisión
                       Evolución conservan entidad y municipio. Toda pantalla nueva con cargo, año o territorio debe usarla),
                       BarraContexto («Estás viendo: cargo año · entidad › municipio › …» y «Copiar enlace»; no aparece sin selección), IndicePagina (barra «En esta pantalla» pegada arriba en Resultados y Lectura por sección: un enlace por bloque con
                       `id`, solo los que están dibujados, marca en cuál vas; al agregar un bloque a esas pantallas, agrégalo a su INDICE), SelectorCargo (el mismo selector de cargo en Resultados, Histórico, Comparar, Mapa, Distritos y Secciones: icono, nombre y
-                      unidad de lib/cargos.ts; tarjetas en todas, con la del Poder Judicial, por decisión del usuario; los cargos que la
+                      unidad de lib/cargos.ts; tarjetas en todas, con la del Poder Judicial, por decisión del usuario (en celular, una fila que se
+                      desliza de lado, con la elegida a la vista); los cargos que la
                       pantalla no puede mostrar salen atenuados con su motivo, no se esconden. `nombreEleccion` en lib/partidos.ts usa los mismos
                       nombres: Presidencia, Diputaciones federales, Gubernaturas, Ayuntamientos, Diputaciones locales), Buscador (autocompletado), Territorio, Piramide, PisoTecho, TendenciaSeccion, EdadSeccion,
                       Enfoque (contexto + selector + CeldaClase), EstrategiaSecciones, PerfilParticipacion, Waffle, Kpi,

@@ -225,7 +225,7 @@ export default function Estados() {
           <button type="button" className="btn btn-gris" onClick={() => setSel(null)}>Volver al país</button>
         </div>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] entra">
+        <div className="grid gap-4 grid-cols-1 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] entra">
           <section className="material p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="font-bold">{vista === "objetivos" ? `Objetivos de ${enf.t}` : met.t}{usaPartido ? ` · ${partido.toUpperCase()}` : ""}{metrica === "batalla" && enfoque !== "general" ? ` · ${enf.t}` : ""}{metrica === "cambio" && comparar !== null ? ` · ${comparar} → ${anio}` : ""}</p>

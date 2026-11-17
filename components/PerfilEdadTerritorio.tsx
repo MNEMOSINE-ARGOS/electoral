@@ -100,11 +100,11 @@ export function PerfilEdadTerritorio({ eleccion, anio, terr, lugar, nombreEstado
       )}
 
       <div className="grid xl:grid-cols-[1fr_1.15fr] gap-6">
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
           <p className="label">Pirámide · personas por rango de edad</p>
           <Piramide grupos={d.grupos} h={d.piramide.h} m={d.piramide.m} nb={d.piramide.nb} />
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
           <p className="label">Peso de cada edad frente a {est ? `${nombreEstado} y ` : ""}el país</p>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={mute}>
             <span><i className="inline-block w-3 h-2.5 rounded-sm align-middle mr-1" style={{ background: "var(--azul)" }} />{lugar}</span>

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { Building2, Scale } from "lucide-react";
 import { CARGOS } from "@/lib/cargos";
 import { nombreEleccion } from "@/lib/partidos";
@@ -37,13 +38,20 @@ export function SelectorCargo({ valor, onChange, variante = "tarjetas", disponib
   // «por distrito», «por entidad»…; presidencia dice solo «todo el país»
   const textoUnidad = (o: Opcion) => unidad[o.id] ?? (!o.unidad ? "" : o.unidad === "todo el país" ? o.unidad : `por ${o.unidad}`);
   const porQue = (id: string) => motivo?.(id) ?? "Este cargo no está disponible en esta pantalla";
+  // En la fila deslizable del celular, la tarjeta elegida queda a la vista (solo se mueve la fila, no la página)
+  const fila = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const f = fila.current, t = f?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (f && t && f.scrollWidth > f.clientWidth) f.scrollLeft = Math.max(0, t.offsetLeft - f.offsetLeft - 8);
+  }, [valor]);
 
   if (variante === "tarjetas") return (
-    <section className={`grid grid-cols-2 md:grid-cols-4 ${opciones.length + (judicial ? 1 : 0) > 7 ? "xl:grid-cols-8" : "xl:grid-cols-7"} gap-2.5`} aria-label="Cargo">
+    // En celular, una fila que se desliza de lado (las 7 tarjetas en rejilla llenaban la pantalla); desde sm, rejilla
+    <section ref={fila} className={`tarjetas-cargo flex overflow-x-auto snap-x gap-2.5 pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:overflow-visible sm:grid-cols-4 ${opciones.length + (judicial ? 1 : 0) > 7 ? "xl:grid-cols-8" : "xl:grid-cols-7"}`} aria-label="Cargo">
       {opciones.map((o) => {
         const activo = ok(o.id), sel = o.id === valor;
         return (
-          <button key={o.id} type="button" className="tarjeta-btn disabled:opacity-40 disabled:cursor-not-allowed" aria-pressed={sel} disabled={!activo}
+          <button key={o.id} type="button" className="tarjeta-btn shrink-0 w-[9.5rem] sm:w-auto snap-start disabled:opacity-40 disabled:cursor-not-allowed" aria-pressed={sel} disabled={!activo}
             title={activo ? undefined : porQue(o.id)} onClick={() => onChange(o.id)}>
             <o.icon size={18} style={{ color: sel ? "var(--accion)" : "var(--fg-mute)" }} />
             <p className="font-bold text-sm pt-2">{o.nombre}</p>
@@ -52,7 +60,7 @@ export function SelectorCargo({ valor, onChange, variante = "tarjetas", disponib
         );
       })}
       {judicial && (
-        <Link href="/judicial" className="tarjeta-btn">
+        <Link href="/judicial" className="tarjeta-btn shrink-0 w-[9.5rem] sm:w-auto snap-start">
           <Scale size={18} style={{ color: "#7c3aed" }} />
           <p className="font-bold text-sm pt-2">Poder Judicial</p>
           <p className="text-xs" style={{ color: "var(--fg-mute)" }}>2025, por persona</p>

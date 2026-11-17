@@ -224,7 +224,7 @@ export default function ResultadosPorCargo() {
         <p id="votacion" className="material p-6">No hay resultados de {c.nombre.toLowerCase()} {anio} en {lugar}.{c.ambito === "local" && !terr.estado ? " En cargos locales cada estado vota en su propio año: elige una entidad o un año en que haya votado." : ""}</p>
       ) : (
         <section id="votacion" className="grid xl:grid-cols-[1.15fr_1fr] gap-4 entra" key={`${cargoId}-${anio}-${lugar}`}>
-          <div className="material p-5 space-y-4">
+          <div className="material p-5 space-y-4 min-w-0">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div><p className="label">{lugar} · {anio}</p><h2 className="text-xl font-bold pt-1">Votación {lectura === "bloque" ? "por bloque" : lectura === "alcance" ? "por alcance de partido" : lectura === "candidatura" ? "por candidatura" : "por opción en la boleta"}</h2></div>
               <Confianza nivel={r.confianza} />
@@ -258,7 +258,7 @@ export default function ResultadosPorCargo() {
       {!terr.distrito && !terr.municipio && !terr.seccion && (
         !unidades ? <Cargando alto={300} /> : unidades.unidades.length === 0 ? null : (
           <section id="unidades" className="grid xl:grid-cols-[1fr_1.35fr] gap-4">
-            <div className="material p-5 space-y-4">
+            <div className="material p-5 space-y-4 min-w-0">
               <div><p className="label">{lugar} · {anio}</p><h2 className="text-xl font-bold pt-1">{tituloReparto}</h2></div>
               {reparto && <>
                 <Waffle celdas={reparto.celdas} columnas={reparto.celdas.length > 400 ? 40 : reparto.celdas.length > 100 ? 25 : 16} tam={reparto.celdas.length > 400 ? 9 : 13}
@@ -276,7 +276,7 @@ export default function ResultadosPorCargo() {
                   El ganador es la candidatura más votada (partido o coalición, inferida de la boleta); el escaño o cargo lo asume el partido que indique el convenio de coalición. Toca un cuadro para entrar.</p>
               </>}
             </div>
-            <div className="material p-4 space-y-3">
+            <div className="material p-4 space-y-3 min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-lg font-bold">{nivelTxt[unidades.nivel]} · {lista.length}</h2>
                 <div className="flex items-center gap-2">

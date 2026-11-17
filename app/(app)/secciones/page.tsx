@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
 import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
-import { Territorio, type Sel } from "@/components/Territorio";
+import { Territorio, SEL_VACIA, type Sel } from "@/components/Territorio";
 import { Buscador } from "@/components/Buscador";
 import { BuscadorMulti } from "@/components/BuscadorMulti";
 import { SelectorCargo } from "@/components/SelectorCargo";
@@ -43,8 +43,6 @@ type Ficha = {
 type Lugar = { candidatura: string; votos: number; pct: number };
 const ORDEN_FICHA = ["presidente", "senado", "diputados_federales", "gobernador", "diputados_locales_mr", "alcaldes"];
 const TEND: Record<string, { t: string; c: string }> = { sigue: { t: "Sigue al país", c: "var(--azul)" }, parcial: { t: "Parcial", c: "#d97706" }, independiente: { t: "Independiente", c: "var(--rose)" }, sin_datos: { t: "Sin datos", c: "var(--fg-mute)" } };
-/** Estado inicial (y el de «Limpiar filtros»): Torreón */
-const INICIAL: Sel = { estados: [5], municipios: [5035], nombres: { 5035: "Torreón" } };
 
 // Bloques de la lectura, en orden, para el índice (cada uno lleva su id abajo)
 const INDICE: ItemIndice[] = [
@@ -59,7 +57,7 @@ export default function Secciones() {
   const ultimo = useRef("");
   const [eleccion, setEleccion] = useState("diputados_federales");
   const [anio, setAnio] = useState<number | null>(null);
-  const [sel, setSel] = useState<Sel>(INICIAL);
+  const [sel, setSel] = useState<Sel>(SEL_VACIA);
   const [distritos, setDistritos] = useState<{ id_distrito: number; n: number; id_estado: number }[]>([]);
   const [distSel, setDistSel] = useState<number[]>([]);
   const [iDet, setIDet] = useState(0);
@@ -80,7 +78,7 @@ export default function Secciones() {
     const cg = CARGOS_ID.includes(x.cargo ?? "") ? x.cargo! : eleccion;
     setEleccion(cg);
     if (x.anio) setAnio(x.anio);
-    if (!x.estados.length) return; // sin territorio elegido: Torreón, como siempre
+    if (!x.estados.length) return; // sin territorio elegido: la pantalla pide elegir uno
     setSel({ estados: x.estados, municipios: x.municipios, nombres: Object.fromEntries(x.municipios.filter((m) => x.nombres[`m${m}`]).map((m) => [m, x.nombres[`m${m}`]])) });
     const conD = cg === "diputados_federales" || cg === "presidente" || cg.startsWith("diputados_locales");
     setDistSel(conD ? distritosPara(x, cg) : []);
@@ -169,11 +167,11 @@ export default function Secciones() {
     return o;
   }, [r, filas, filtrado]);
   const totB = rf ? Object.values(rf.bloques).reduce((a, b) => a + b, 0) : 0;
-  // Estado inicial de la pantalla (Torreón, diputaciones federales, el año más reciente): «Limpiar filtros» regresa aquí
-  const sucio = eleccion !== "diputados_federales" || sel.estados.join() !== "5" || sel.municipios.join() !== "5035" || distSel.length > 0 || !!clase || !!secSel
+  // Estado inicial de la pantalla (diputaciones federales, el año más reciente, sin territorio): «Limpiar filtros» regresa aquí
+  const sucio = eleccion !== "diputados_federales" || sel.estados.length > 0 || sel.municipios.length > 0 || distSel.length > 0 || !!clase || !!secSel
     || vista !== "lectura" || iDet !== 0 || (anio !== null && anios.length > 0 && anio !== anios[0]);
   function limpiar() {
-    setEleccion("diputados_federales"); setAnio(null); setSel(INICIAL); setDistSel([]); setIDet(0);
+    setEleccion("diputados_federales"); setAnio(null); setSel(SEL_VACIA); setDistSel([]); setIDet(0);
     setClase(""); setSecSel(0); setVista("lectura"); setFicha(null);
   }
 

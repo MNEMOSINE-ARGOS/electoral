@@ -61,7 +61,8 @@ main [id] { scroll-margin-top: calc(var(--alto-cabecera, 3.5rem) + 4.5rem); }
 .btn:hover { filter: brightness(1.07); } .btn[disabled] { opacity:.5; cursor:default; }
 .btn-ghost { background: transparent; color: var(--fg-soft); border:1px solid var(--line-strong); }
 
-.seg { display:inline-flex; padding:3px; border-radius:12px; background: color-mix(in srgb, var(--fg) 6%, transparent); gap:2px; }
+/* flex-wrap: en pantallas angostas los botones pasan a otra línea en lugar de salirse (p. ej. «Colorear por» del mapa) */
+.seg { display:inline-flex; flex-wrap:wrap; max-width:100%; padding:3px; border-radius:12px; background: color-mix(in srgb, var(--fg) 6%, transparent); gap:2px; }
 .seg button { padding:.38rem .8rem; border-radius:9px; font-size:.8rem; font-weight:600; color: var(--fg-soft); transition: background 160ms, color 160ms, transform 100ms; cursor:pointer; }
 .seg button[aria-pressed="true"] { background: var(--card-solid); color: var(--fg); box-shadow: 0 1px 3px rgba(15,23,42,.12); }
 .seg button:active { transform: scale(.97); }
@@ -317,6 +318,7 @@ html { scroll-behavior: smooth; }
 .mosaico-tip { right:.25rem; bottom:.25rem; }
 .mapa-ctl { display:grid; grid-template-columns: 6.5rem 1fr; gap:.5rem; align-items:center; }
 @media (max-width: 640px) { .mapa-ctl { grid-template-columns: 1fr; gap:.3rem; } }
+.mapa-ctl > * { min-width: 0; }
 .mapa-barra { display:flex; height:12px; border-radius:999px; overflow:hidden; gap:2px; }
 .mapa-barra i { min-width:3px; transition: flex-grow 420ms cubic-bezier(.2,.8,.2,1), background-color 300ms; }
 .mapa-ley { display:grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap:2px .75rem; }
