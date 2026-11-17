@@ -9,8 +9,9 @@ import { Cargando, Confianza } from "@/components/Kpi";
 import { BLOQUES, ENFOQUES, nombreCandidatura, porBloque, porCandidatura, type Clase } from "@/lib/analisis";
 import { CeldaClase, ResumenClases, useEnfoque } from "@/components/Enfoque";
 import { Ayuda } from "@/components/Ayuda";
-import { colorPartido, nombreEleccion } from "@/lib/partidos";
+import { colorPartido } from "@/lib/partidos";
 import { BotonLimpiar } from "@/components/FiltroTerritorio";
+import { SelectorCargo } from "@/components/SelectorCargo";
 import { SEL_VACIA, Territorio, type Sel } from "@/components/Territorio";
 import { fmt, pct } from "@/lib/format";
 
@@ -102,7 +103,8 @@ export default function Distritos() {
       </header>
       <section className="material p-4 space-y-3">
         <div className="flex justify-end -mb-1"><BotonLimpiar visible={sucio} onClick={limpiar} /></div>
-        <div className="flex flex-wrap gap-2">{CARGOS.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => { setEleccion(t); setAnio(null); }}>{nombreEleccion[t]}{t === "presidente" ? " (por distrito)" : ""}</button>)}</div>
+        <SelectorCargo valor={eleccion} onChange={(t) => { setEleccion(t); setAnio(null); }} disponibles={CARGOS} unidad={{ presidente: "por distrito (lectura territorial)" }}
+          motivo={(t) => `Se elige por ${t === "alcaldes" ? "municipio" : "entidad"}: ver «Resultados por cargo» o «Mapa nacional»`} />
         <div className="flex flex-wrap gap-2">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
         <AvisoSiPrep eleccion={eleccion} anio={anio} />
         {cat && <Territorio estados={cats} valor={terr} onChange={setTerr} permiteNacional={!local} />}

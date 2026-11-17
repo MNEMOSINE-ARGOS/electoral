@@ -6,7 +6,8 @@ import { api, type Resultado } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
 import { Cargando } from "@/components/Kpi";
 import { ElegirDetalle, FiltroTerritorio, SIN_FILTRO, claveTerr, nombreCorto, nombreTerr, territorios, type FiltroT, type Terr } from "@/components/FiltroTerritorio";
-import { CARGOS, cargo as cargoDe, type CargoId } from "@/lib/cargos";
+import { cargo as cargoDe, type CargoId } from "@/lib/cargos";
+import { SelectorCargo } from "@/components/SelectorCargo";
 import { alcance, colorPartido } from "@/lib/partidos";
 import { BLOQUES, familia, indicadores, nombreCandidatura, porBloque, porCandidatura } from "@/lib/analisis";
 import { fmt, pct } from "@/lib/format";
@@ -135,7 +136,7 @@ export default function Historico() {
       </header>
 
       <section className="material p-4 md:p-5 space-y-4">
-        <div className="flex flex-wrap gap-2">{CARGOS.map((x) => <button key={x.id} className="chip" aria-pressed={x.id === cargoId} onClick={() => { setCargoId(x.id); setFiltro(SIN_FILTRO); }}><x.icon size={14} />{x.nombre}</button>)}</div>
+        <SelectorCargo valor={cargoId} onChange={(id) => { setCargoId(id as CargoId); setFiltro(SIN_FILTRO); }} />
         {cat && <FiltroTerritorio estados={cat.estados} cargo={cargoId} anio={aB || null} valor={filtro} onChange={setFiltro} />}
         <div className="flex flex-wrap items-center gap-3 border-t pt-3" style={{ borderColor: "var(--line)" }}>
           <div className="seg" role="group" aria-label="Lectura">{(Object.keys(LECT) as Lectura[]).map((l) => <button key={l} aria-pressed={lectura === l} onClick={() => setLectura(l)} title={LECT[l].d}>{LECT[l].t}</button>)}</div>

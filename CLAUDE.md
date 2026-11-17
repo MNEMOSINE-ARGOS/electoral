@@ -68,7 +68,9 @@ app/(app)/            pantallas (cliente)
   usuarios/           solo superusuarios
   layout.tsx          barra superior (selector de enfoque, tema, cuenta) y barra lateral
 app/api/              rutas de datos (route handlers) y auth/
-components/           Buscador (autocompletado), Territorio, Piramide, PisoTecho, TendenciaSeccion, EdadSeccion,
+components/           SelectorCargo (el mismo selector de cargo en Resultados, Histórico, Comparar, Mapa, Distritos y Secciones: icono, nombre y
+                      unidad de lib/cargos.ts; «tarjetas» solo en Resultados, con la del Poder Judicial; «chips» en las demás; los cargos que la
+                      pantalla no puede mostrar salen atenuados con su motivo, no se esconden), Buscador (autocompletado), Territorio, Piramide, PisoTecho, TendenciaSeccion, EdadSeccion,
                       Enfoque (contexto + selector + CeldaClase), EstrategiaSecciones, PerfilParticipacion, Waffle, Kpi,
                       Plegable (detalle un nivel abajo), BotonLimpiar (en FiltroTerritorio: «Limpiar filtros» en toda pantalla con filtros; aparece solo si algo cambió y regresa la pantalla a su estado inicial), MiniGraficas (SVG; colores --serie-fed/--serie-loc validados para daltonismo),
                       MapaGeo (coroplético con zoom, tarjeta, etiquetas, círculos, bordes, rayado; `simple` para miniaturas),

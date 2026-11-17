@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CartesianGrid, Legend, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ChevronRight, Scale, Search } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
+import { SelectorCargo } from "@/components/SelectorCargo";
 import { SeccionesInline } from "@/components/SeccionesInline";
 import { ElegirDetalle, FiltroTerritorio, NAC, SIN_FILTRO, filtroDe, territorios, type FiltroT, type Terr } from "@/components/FiltroTerritorio";
 import { LadoALadoResultados } from "@/components/LadoALadoResultados";
@@ -11,7 +12,7 @@ import { useCatalogo } from "@/components/useCatalogo";
 import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
 import { Cargando, Confianza } from "@/components/Kpi";
 import { Barra, Waffle } from "@/components/Waffle";
-import { CARGOS, cargo as cargoDe, type CargoId } from "@/lib/cargos";
+import { cargo as cargoDe, type CargoId } from "@/lib/cargos";
 import { alcance, colorPartido } from "@/lib/partidos";
 import { BLOQUES, ENFOQUES, ETIQ_CLASE, clasesDe, type Clase, indicadores, nombreCandidatura, pedersen, porBloque, porCandidatura, porFamilia } from "@/lib/analisis";
 import { useEnfoque } from "@/components/Enfoque";
@@ -165,20 +166,7 @@ export default function ResultadosPorCargo() {
       </header>
 
       {/* 1. Cargo */}
-      <section className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2.5" aria-label="Cargo">
-        {CARGOS.map((x) => (
-          <button key={x.id} className="tarjeta-btn" aria-pressed={x.id === cargoId} onClick={() => elegirCargo(x.id)}>
-            <x.icon size={18} style={{ color: x.id === cargoId ? "var(--accion)" : "var(--fg-mute)" }} />
-            <p className="font-bold text-sm pt-2">{x.nombre}</p>
-            <p className="text-xs" style={{ color: "var(--fg-mute)" }}>por {x.unidad}</p>
-          </button>
-        ))}
-        <Link href="/judicial" className="tarjeta-btn">
-          <Scale size={18} style={{ color: "#7c3aed" }} />
-          <p className="font-bold text-sm pt-2">Poder Judicial</p>
-          <p className="text-xs" style={{ color: "var(--fg-mute)" }}>2025, por persona</p>
-        </Link>
-      </section>
+      <SelectorCargo variante="tarjetas" valor={cargoId} onChange={(id) => elegirCargo(id as CargoId)} judicial />
 
       {/* 2. Año y territorio */}
       <section className="material p-4 md:p-5 space-y-4 relative z-10">

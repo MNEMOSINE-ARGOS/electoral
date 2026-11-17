@@ -6,7 +6,8 @@ import { useCatalogo } from "@/components/useCatalogo";
 import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
 import { Territorio, SEL_VACIA, type Sel } from "@/components/Territorio";
 import { Cargando } from "@/components/Kpi";
-import { colorPartido, nombreEleccion } from "@/lib/partidos";
+import { colorPartido } from "@/lib/partidos";
+import { SelectorCargo } from "@/components/SelectorCargo";
 import { BotonLimpiar, MAX_TERR } from "@/components/FiltroTerritorio";
 import { fmt, pct } from "@/lib/format";
 
@@ -68,7 +69,7 @@ export default function Comparar() {
       </header>
       <section className="material p-4 space-y-4">
         <div className="flex justify-end -mb-2"><BotonLimpiar visible={sucio} onClick={limpiar} /></div>
-        <div className="flex flex-wrap gap-2">{tipos.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => setEleccion(t)}>{nombreEleccion[t] ?? t}</button>)}</div>
+        <SelectorCargo valor={eleccion} onChange={setEleccion} disponibles={tipos} extras={["diputados_locales_rp"]} motivo={() => "Sin elecciones de este cargo en la base"} />
         <div className="flex flex-wrap gap-2">{aniosU.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
         <AvisoSiPrep eleccion={eleccion} anio={anio} />
         {cat && <Territorio estados={cat.estados} valor={sel} onChange={setSel} permiteNacional={false} />}

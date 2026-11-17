@@ -7,6 +7,7 @@ import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
 import { Territorio, type Sel } from "@/components/Territorio";
 import { Buscador } from "@/components/Buscador";
 import { BuscadorMulti } from "@/components/BuscadorMulti";
+import { SelectorCargo } from "@/components/SelectorCargo";
 import { BotonLimpiar, ElegirDetalle, MAX_TERR, NAC, type Terr } from "@/components/FiltroTerritorio";
 import { EstrategiaSecciones } from "@/components/EstrategiaSecciones";
 import { PerfilParticipacion } from "@/components/PerfilParticipacion";
@@ -37,7 +38,6 @@ type Ficha = {
 type Lugar = { candidatura: string; votos: number; pct: number };
 const ORDEN_FICHA = ["presidente", "senado", "diputados_federales", "gobernador", "diputados_locales_mr", "alcaldes"];
 const TEND: Record<string, { t: string; c: string }> = { sigue: { t: "Sigue al país", c: "var(--azul)" }, parcial: { t: "Parcial", c: "#d97706" }, independiente: { t: "Independiente", c: "var(--rose)" }, sin_datos: { t: "Sin datos", c: "var(--fg-mute)" } };
-const CARGOS = ["diputados_federales", "presidente", "senado", "alcaldes", "diputados_locales_mr", "gobernador"];
 /** Estado inicial (y el de «Limpiar filtros»): Torreón */
 const INICIAL: Sel = { estados: [5], municipios: [5035], nombres: { 5035: "Torreón" } };
 
@@ -179,7 +179,7 @@ export default function Secciones() {
       </header>
       <section className="material p-4 space-y-3">
         <div className="flex justify-end -mb-1"><BotonLimpiar visible={sucio} onClick={limpiar} /></div>
-        <div className="flex flex-wrap gap-2">{CARGOS.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => { setEleccion(t); setAnio(null); }}>{nombreEleccion[t] ?? t}</button>)}</div>
+        <SelectorCargo valor={eleccion} onChange={(t) => { setEleccion(t); setAnio(null); }} />
         <div className="flex flex-wrap gap-2">{anios.map((a) => <button key={a} className="chip" aria-pressed={a === anio} onClick={() => setAnio(a)}>{a}<MarcaPrep eleccion={eleccion} anio={a} /></button>)}</div>
         <AvisoSiPrep eleccion={eleccion} anio={anio} />
         <div className="flex flex-wrap gap-3 items-end">

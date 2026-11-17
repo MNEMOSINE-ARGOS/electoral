@@ -18,6 +18,7 @@ import { METRICAS, VISTAS, cambioDe, partidosPresentes, type EntidadGeo, type Me
 import { useCapaMapa } from "@/components/useCapaMapa";
 import { MarcaPrep } from "@/components/Prep";
 import { BotonLimpiar } from "@/components/FiltroTerritorio";
+import { SelectorCargo } from "@/components/SelectorCargo";
 import { AvisoPrep, type PrepMeta } from "@/components/MapaPiezas";
 
 // Mapa nacional: UNA elección (cargo + año) por entidad. «Colorear por» (lib/mapa METRICAS): quién ganó, qué tan reñido, campo de
@@ -162,7 +163,7 @@ export default function Estados() {
       <section className="material p-4 space-y-3">
         <div className="flex justify-end -mb-1"><BotonLimpiar visible={sucio} onClick={limpiar} /></div>
         <div className="mapa-ctl"><span className="label">Elección</span>
-          <div className="flex flex-wrap gap-1.5">{tipos.map((t) => <button key={t} className="chip" aria-pressed={t === eleccion} onClick={() => setEleccion(t)}>{nombreEleccion[t] ?? t}</button>)}</div></div>
+          <SelectorCargo valor={eleccion} onChange={setEleccion} disponibles={tipos} extras={["diputados_locales_rp"]} motivo={() => "Sin elecciones de este cargo en la base"} /></div>
         <div className="mapa-ctl"><span className="label">Año</span>
           <div className="flex flex-wrap gap-1.5">{anios.map((a) => {
             const n = vot?.get(a)?.size ?? 0, ok = activo(a, sel);
