@@ -62,7 +62,7 @@ export function VotoAnimado({ className = "" }: { className?: string }) {
     if (!g) return;
     setFin(false); setEntrando(false); setSaliendo(false);
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      trazo.current?.setAttribute("width", String(g.ux - 4)); barco.current?.setAttribute("opacity", "0"); setFin(true); return;
+      trazo.current?.setAttribute("width", String(Math.max(g.ux - 4, 0))); barco.current?.setAttribute("opacity", "0"); setFin(true); return;
     }
     let raf = 0; const t0 = performance.now(); const esperas: number[] = [];
     const tick = (now: number) => {
@@ -80,7 +80,7 @@ export function VotoAnimado({ className = "" }: { className?: string }) {
         dy = -20 * g.s + (40 * g.s + 12) * easeIn(Math.min(1, (t - VIAJE - GIRO) / CAIDA));
         setEntrando(true);
       }
-      trazo.current?.setAttribute("width", String(Math.min(x, g.ux - 4))); // la línea termina al pie de la urna
+      trazo.current?.setAttribute("width", String(clamp(x, 0, Math.max(g.ux - 4, 0)))); // la línea termina al pie de la urna (nunca negativa: SVG la rechaza)
       b.setAttribute("opacity", String(clamp((x - w * 0.12) / (w * 0.12), 0, 1))); // aparece después de nacer la línea
       b.setAttribute("transform", `translate(${x.toFixed(1)} ${(y + dy).toFixed(1)}) rotate(${ang.toFixed(1)}) scale(${g.s.toFixed(3)}) translate(-19 -21)`);
       if (t < VIAJE + GIRO + CAIDA) raf = requestAnimationFrame(tick);

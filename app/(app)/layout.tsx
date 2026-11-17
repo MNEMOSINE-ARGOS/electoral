@@ -42,6 +42,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  // Al cambiar de pantalla, arriba del todo (Next solo sube si el contenido «no se ve», y con la barra superior alta lo deja tapado).
+  // Con «atrás» / «adelante» se respeta la posición que guarda el navegador.
+  const atras = useRef(false);
+  useEffect(() => {
+    const f = () => { atras.current = true; };
+    window.addEventListener("popstate", f);
+    return () => window.removeEventListener("popstate", f);
+  }, []);
+  useEffect(() => {
+    if (atras.current) { atras.current = false; return; }
+    window.scrollTo(0, 0);
+  }, [path]);
   async function salir() { await fetch("/api/auth/logout", { method: "POST" }); location.href = "/login"; }
   const admin: Pantalla = { href: "/usuarios", label: "Usuarios", icon: UserCog, color: "#64748b", resumen: "", preguntas: [], contiene: [] };
   const grupos = yo?.rol === "super" ? [...NAV, { titulo: "Administración", items: [admin] }] : NAV;
