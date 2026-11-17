@@ -8,6 +8,7 @@ import { Territorio, SEL_VACIA, type Sel } from "@/components/Territorio";
 import { Cargando } from "@/components/Kpi";
 import { colorPartido } from "@/lib/partidos";
 import { SelectorCargo } from "@/components/SelectorCargo";
+import { useSincronizarContexto } from "@/components/Contexto";
 import { BotonLimpiar, MAX_TERR } from "@/components/FiltroTerritorio";
 import { fmt, pct } from "@/lib/format";
 
@@ -28,6 +29,8 @@ export function CompararTerritorios() {
   const [cargando, setCargando] = useState(false);
 
   const tipos = useMemo(() => [...new Set((cat?.elecciones ?? []).map((e) => e.eleccion))], [cat]);
+  // Selección compartida entre pantallas (components/Contexto): aquí solo el cargo; las series se arman a mano
+  useSincronizarContexto(!!cat, (x) => { if (x.cargo && tipos.includes(x.cargo)) setEleccion(x.cargo); }, { cargo: eleccion });
   const anios = useMemo(() => (cat?.elecciones ?? []).filter((e) => e.eleccion === eleccion).map((e) => e.anio), [cat, eleccion]);
   const aniosU = [...new Set(anios)].sort((a, b) => b - a);
   useEffect(() => { if (aniosU.length && (anio === null || !aniosU.includes(anio))) setAnio(aniosU[0]); }, [aniosU.join(), anio]); // eslint-disable-line

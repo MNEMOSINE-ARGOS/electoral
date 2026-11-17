@@ -39,7 +39,8 @@ bun run build
 ```
 app/(app)/            pantallas (cliente)
   inicio/             portada tras el login: cifras, el enfoque con su selector (justo bajo las cifras, para ver el cambio al elegir),
-                      gráficas de cobertura (API inicio, caché 1 h), cómo se recorre, índice de pantallas (número, resumen, vista previa y cifra; preguntas plegadas), conceptos y datos.
+                      «¿Qué quieres saber?» (justo bajo el enfoque: territorio y cargo opcional una vez, y seis preguntas que abren cada pantalla con esa
+                      selección), gráficas de cobertura (API inicio, caché 1 h), índice de pantallas (número, resumen, vista previa y cifra; preguntas plegadas), conceptos y datos.
                       Cifras de arriba con conteo animado (components/Contador.tsx)
   page.tsx            «Resultados por cargo»: cargo → año → territorio (entidad, distrito, municipio, sección), unidades ganadas,
                       competitividad, serie y piso/techo. Electorado por edad y sexo del territorio en el corte más reciente
@@ -67,9 +68,16 @@ app/(app)/            pantallas (cliente)
                       API censo-territorio): escolaridad (también por sexo), ocupación, salud, vivienda, población y hogares, contra su estado y el país
   judicial/           elección judicial 2025 (votos por persona)
   usuarios/           solo superusuarios
-  layout.tsx          barra superior (selector de enfoque, tema, cuenta) y barra lateral
+  layout.tsx          barra superior (selector de enfoque, tema, cuenta, y la barra «Estás viendo»), barra lateral y ContextoProvider;
+                      mide el alto de la barra superior en --alto-cabecera (lo usan la barra lateral y el índice)
 app/api/              rutas de datos (route handlers) y auth/
-components/           IndicePagina (barra «En esta pantalla» pegada arriba en Resultados y Lectura por sección: un enlace por bloque con
+components/           Contexto (selección compartida entre pantallas, decisión del usuario: cargo, año, entidades, municipios, distritos,
+                      secciones; en sessionStorage; un enlace con ?cargo=&anio=&estado=&municipio=&distrito=&seccion= la reemplaza y los parámetros se
+                      quitan de la dirección al leerlos. Cada pantalla llama a useSincronizarContexto(listo, aplicar, parcial): aplica la selección al abrir y
+                      guarda lo que el usuario cambie; usa solo lo que entiende (Electorado: entidad y municipio; el mapa abre una entidad y, dentro, un
+                      municipio, distrito local y sección; distritos solo si son del tipo del cargo, distritosPara). Al cambiar de cargo, Resultados y
+                      Evolución conservan entidad y municipio. Toda pantalla nueva con cargo, año o territorio debe usarla),
+                      BarraContexto («Estás viendo: cargo año · entidad › municipio › …» y «Copiar enlace»; no aparece sin selección), IndicePagina (barra «En esta pantalla» pegada arriba en Resultados y Lectura por sección: un enlace por bloque con
                       `id`, solo los que están dibujados, marca en cuál vas; al agregar un bloque a esas pantallas, agrégalo a su INDICE), SelectorCargo (el mismo selector de cargo en Resultados, Histórico, Comparar, Mapa, Distritos y Secciones: icono, nombre y
                       unidad de lib/cargos.ts; tarjetas en todas, con la del Poder Judicial, por decisión del usuario; los cargos que la
                       pantalla no puede mostrar salen atenuados con su motivo, no se esconden. `nombreEleccion` en lib/partidos.ts usa los mismos

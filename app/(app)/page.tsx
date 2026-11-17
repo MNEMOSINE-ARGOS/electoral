@@ -5,15 +5,16 @@ import { CartesianGrid, Legend, Line, LineChart, ReferenceArea, ResponsiveContai
 import { ChevronRight, Search } from "lucide-react";
 import { SelectorCargo } from "@/components/SelectorCargo";
 import { IndicePagina, type ItemIndice } from "@/components/IndicePagina";
+import { useSincronizarContexto, distritosPara } from "@/components/Contexto";
 import { SeccionesInline } from "@/components/SeccionesInline";
-import { ElegirDetalle, FiltroTerritorio, NAC, SIN_FILTRO, filtroDe, territorios, type FiltroT, type Terr } from "@/components/FiltroTerritorio";
+import { CON_DISTRITO, ElegirDetalle, FiltroTerritorio, NAC, SIN_FILTRO, filtroDe, territorios, type FiltroT, type Terr } from "@/components/FiltroTerritorio";
 import { LadoALadoResultados } from "@/components/LadoALadoResultados";
 import { api, type Resultado } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
 import { MarcaPrep, AvisoSiPrep } from "@/components/Prep";
 import { Cargando, Confianza } from "@/components/Kpi";
 import { Barra, Waffle } from "@/components/Waffle";
-import { cargo as cargoDe, type CargoId } from "@/lib/cargos";
+import { CARGOS, cargo as cargoDe, type CargoId } from "@/lib/cargos";
 import { alcance, colorPartido } from "@/lib/partidos";
 import { BLOQUES, ENFOQUES, ETIQ_CLASE, clasesDe, type Clase, indicadores, nombreCandidatura, pedersen, porBloque, porCandidatura, porFamilia } from "@/lib/analisis";
 import { useEnfoque } from "@/components/Enfoque";
@@ -56,6 +57,14 @@ export default function ResultadosPorCargo() {
   const [filtro, setFiltro] = useState("");
   const [orden, setOrden] = useState<"id" | "margen" | "participacion">("id");
   const c = cargoDe(cargoId);
+  // Selección compartida entre pantallas (components/Contexto): se lee al abrir y se guarda al cambiar
+  useSincronizarContexto(!!cat, (x) => {
+    const cg = CARGOS.some((k) => k.id === x.cargo) ? (x.cargo as CargoId) : cargoId;
+    setCargoId(cg);
+    if (x.anio) setAnio(x.anio);
+    setFiltroT({ estados: x.estados, municipios: x.municipios, distritos: CON_DISTRITO.includes(cg) ? distritosPara(x, cg) : [], secciones: x.secciones, nombres: x.nombres });
+    setIDet(0);
+  }, { cargo: cargoId, anio, estados: filtro_t.estados, municipios: filtro_t.municipios, distritos: filtro_t.distritos, secciones: filtro_t.secciones, nombres: filtro_t.nombres });
 
   const estEleg = [...new Set(ts.map((t) => t.estado).filter(Boolean))].sort((a, b) => a - b).join(",");
   const [aniosTerr, setAniosTerr] = useState<{ clave: string; anios: number[] } | null>(null);
@@ -91,7 +100,8 @@ export default function ResultadosPorCargo() {
   const nombreEstado = (id: number) => cat?.estados.find((e) => e.id_estado === id)?.nombre_corto ?? "";
   const lugar = terr.seccion ? `Sección ${terr.seccion % 10000}${terr.ctx ? ` · ${terr.ctx}` : ""}` : terr.municipio ? terr.nombre : terr.distrito ? `Distrito ${terr.nombre}` : terr.estado ? nombreEstado(terr.estado) : "Nacional";
 
-  function elegirCargo(id: CargoId) { setCargoId(id); setFiltroT(SIN_FILTRO); setIDet(0); setAnio(null); setFiltro(""); }
+  // Al cambiar de cargo se conservan entidad y municipio; distritos y secciones dependen del cargo y del año
+  function elegirCargo(id: CargoId) { setCargoId(id); setFiltroT((f) => ({ ...SIN_FILTRO, estados: f.estados, municipios: f.municipios, nombres: f.nombres })); setIDet(0); setAnio(null); setFiltro(""); }
   function entrar(u: Unidad, nivel: Nivel) {
     if (nivel === "estado") setTerr({ ...NAC, estado: u.id, nombre: u.nombre });
     else if (nivel === "municipio") setTerr({ ...NAC, estado: u.id_estado, municipio: u.id, nombre: u.nombre });

@@ -19,6 +19,7 @@ import { useCapaMapa } from "@/components/useCapaMapa";
 import { MarcaPrep } from "@/components/Prep";
 import { BotonLimpiar } from "@/components/FiltroTerritorio";
 import { SelectorCargo } from "@/components/SelectorCargo";
+import { useSincronizarContexto, distritosPara } from "@/components/Contexto";
 import { AvisoPrep, type PrepMeta } from "@/components/MapaPiezas";
 
 // Mapa nacional: UNA elección (cargo + año) por entidad. «Colorear por» (lib/mapa METRICAS): quién ganó, qué tan reñido, campo de
@@ -74,6 +75,19 @@ export default function Estados() {
   useEffect(() => { fetch("/geo/entidades.json").then((r) => (r.ok ? r.json() : [])).then(setGeoEnt).catch(() => {}); cargarGeo("/geo/estados.geojson").catch(() => {}); }, []);
 
   const tipos = useMemo(() => [...new Set((cat?.elecciones ?? []).map((e) => e.eleccion))], [cat]);
+  // Selección compartida entre pantallas (components/Contexto): con una sola entidad se abre su mapa, y dentro, el municipio,
+  // el distrito local (solo en diputaciones locales) y la sección si hay uno solo de cada uno
+  const dlLocal = eleccion.startsWith("diputados_locales");
+  useSincronizarContexto(!!cat, (x) => {
+    const cg = x.cargo && tipos.includes(x.cargo) ? x.cargo : eleccion;
+    setEleccion(cg);
+    if (x.anio) setAnio(x.anio);
+    if (x.estados.length !== 1) return;
+    const uno = (v: number[]) => (v.length === 1 ? v[0] : 0);
+    setSelEnt(x.estados[0]);
+    setRuta({ municipio: uno(x.municipios), dl: cg.startsWith("diputados_locales") ? uno(distritosPara(x, cg)) : 0, seccion: uno(x.secciones) });
+  }, { cargo: eleccion, anio, estados: sel !== null ? [sel] : [], municipios: ruta.municipio ? [ruta.municipio] : [], secciones: ruta.seccion ? [ruta.seccion] : [],
+    distritos: dlLocal ? (ruta.dl ? [ruta.dl] : []) : undefined });
   // Años con datos en la base, más los que solo tienen PREP (preliminar, lib/prep.ts)
   const aniosPrep = useMemo(() => new Set((cat?.prep ?? []).filter((p) => p.eleccion === eleccion).map((p) => p.anio)), [cat, eleccion]);
   const anios = useMemo(() => [...(cat?.elecciones ?? []).filter((e) => e.eleccion === eleccion && !e.extraordinaria).map((e) => e.anio), ...aniosPrep]

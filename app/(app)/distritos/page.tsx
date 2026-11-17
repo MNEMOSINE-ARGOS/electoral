@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "@/lib/api";
@@ -12,6 +12,7 @@ import { Ayuda } from "@/components/Ayuda";
 import { colorPartido } from "@/lib/partidos";
 import { BotonLimpiar } from "@/components/FiltroTerritorio";
 import { SelectorCargo } from "@/components/SelectorCargo";
+import { useSincronizarContexto, distritosPara } from "@/components/Contexto";
 import { SEL_VACIA, Territorio, type Sel } from "@/components/Territorio";
 import { fmt, pct } from "@/lib/format";
 
@@ -43,6 +44,23 @@ export default function Distritos() {
   const [hist, setHist] = useState<{ historia: Hist[]; municipios: { clave_inegi: number; nombre: string; secciones: string; votos_totales: string }[]; aviso: string } | null>(null);
 
   const local = eleccion.startsWith("diputados_locales");
+  // Selección compartida entre pantallas (components/Contexto): un solo distrito en la selección se abre al cargar la lista
+  const pendienteDist = useRef(0);
+  useSincronizarContexto(!!cat, (x) => {
+    const cg = (CARGOS as readonly string[]).includes(x.cargo ?? "") ? x.cargo! : eleccion;
+    setEleccion(cg);
+    if (x.anio) setAnio(x.anio);
+    setTerr({ estados: x.estados, municipios: x.municipios, nombres: Object.fromEntries(x.municipios.filter((m) => x.nombres[`m${m}`]).map((m) => [m, x.nombres[`m${m}`]])) });
+    const ds = distritosPara(x, cg);
+    pendienteDist.current = ds.length === 1 ? ds[0] : 0;
+  }, { cargo: eleccion, anio, estados: terr.estados, municipios: terr.municipios, distritos: sel ? [sel.id_distrito] : [],
+    nombres: Object.fromEntries(Object.entries(terr.nombres).map(([k, v]) => [`m${k}`, v])) });
+  useEffect(() => {
+    if (!lista || !pendienteDist.current) return;
+    const d = lista.find((x) => x.id_distrito === pendienteDist.current);
+    if (d) setSel(d);
+    pendienteDist.current = 0;
+  }, [lista]);
   const anios = useMemo(() => (cat?.elecciones ?? []).filter((e) => e.eleccion === eleccion && !e.extraordinaria && e.anio >= (local ? 2015 : 1994)).map((e) => e.anio).filter((a, i, arr) => arr.indexOf(a) === i).sort((a, b) => b - a), [cat, eleccion, local]);
   useEffect(() => { if (anios.length && (anio === null || !anios.includes(anio))) setAnio(anios[0]); }, [anios, anio]);
   useEffect(() => {

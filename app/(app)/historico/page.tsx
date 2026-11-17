@@ -3,11 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowRight, Check, GitCompareArrows, LineChart as LineChartIco } from "lucide-react";
 import { CompararTerritorios } from "@/components/CompararTerritorios";
+import { useSincronizarContexto, distritosPara } from "@/components/Contexto";
 import { api, type Resultado } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
 import { Cargando } from "@/components/Kpi";
-import { ElegirDetalle, FiltroTerritorio, SIN_FILTRO, claveTerr, nombreCorto, nombreTerr, territorios, type FiltroT, type Terr } from "@/components/FiltroTerritorio";
-import { cargo as cargoDe, type CargoId } from "@/lib/cargos";
+import { CON_DISTRITO, ElegirDetalle, FiltroTerritorio, SIN_FILTRO, claveTerr, nombreCorto, nombreTerr, territorios, type FiltroT, type Terr } from "@/components/FiltroTerritorio";
+import { CARGOS, cargo as cargoDe, type CargoId } from "@/lib/cargos";
 import { SelectorCargo } from "@/components/SelectorCargo";
 import { alcance, colorPartido } from "@/lib/partidos";
 import { BLOQUES, familia, indicadores, nombreCandidatura, porBloque, porCandidatura } from "@/lib/analisis";
@@ -56,6 +57,13 @@ export default function Historico() {
   const [aB, setAB] = useState(0);
   const [elegidos, setElegidos] = useState<string[] | null>(null);
   const c = cargoDe(cargoId);
+  // Selección compartida entre pantallas (components/Contexto); el año es la elección B
+  useSincronizarContexto(!!cat, (x) => {
+    const cg = CARGOS.some((k) => k.id === x.cargo) ? (x.cargo as CargoId) : cargoId;
+    setCargoId(cg);
+    if (x.anio) setAB(x.anio);
+    setFiltro({ estados: x.estados, municipios: x.municipios, distritos: CON_DISTRITO.includes(cg) ? distritosPara(x, cg) : [], secciones: x.secciones, nombres: x.nombres });
+  }, { cargo: cargoId, anio: aB || null, estados: filtro.estados, municipios: filtro.municipios, distritos: filtro.distritos, secciones: filtro.secciones, nombres: filtro.nombres });
   // Pestañas: «tiempo» (trayectoria y elección contra elección) o «comparar» (antes la pantalla Comparar territorios; /municipios llega con #comparar)
   const [modo, setModo] = useState<"tiempo" | "comparar">("tiempo");
   useEffect(() => {
@@ -151,7 +159,7 @@ export default function Historico() {
 
       {modo === "comparar" ? <CompararTerritorios /> : <>
       <section className="material p-4 md:p-5 space-y-4">
-        <SelectorCargo valor={cargoId} onChange={(id) => { setCargoId(id as CargoId); setFiltro(SIN_FILTRO); }} />
+        <SelectorCargo valor={cargoId} onChange={(id) => { setCargoId(id as CargoId); setFiltro((f) => ({ ...SIN_FILTRO, estados: f.estados, municipios: f.municipios, nombres: f.nombres })); }} />
         {cat && <FiltroTerritorio estados={cat.estados} cargo={cargoId} anio={aB || null} valor={filtro} onChange={setFiltro} />}
         <div className="flex flex-wrap items-center gap-3 border-t pt-3" style={{ borderColor: "var(--line)" }}>
           <div className="seg" role="group" aria-label="Lectura">{(Object.keys(LECT) as Lectura[]).map((l) => <button key={l} aria-pressed={lectura === l} onClick={() => setLectura(l)} title={LECT[l].d}>{LECT[l].t}</button>)}</div>

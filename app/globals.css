@@ -49,8 +49,12 @@ h1 { letter-spacing: -0.025em; }
 
 /* Índice de pantallas largas (components/IndicePagina): pegado bajo la barra superior desde md; los bloques dejan espacio al saltar */
 .indice-pagina { display:flex; align-items:center; gap:.75rem; padding:.5rem .75rem; border-radius:14px; z-index:20; }
-@media (min-width: 768px) { .indice-pagina { position:sticky; top:4.25rem; } }
-main [id] { scroll-margin-top: 8.5rem; }
+@media (min-width: 768px) { .indice-pagina { position:sticky; top:calc(var(--alto-cabecera, 3.5rem) + .6rem); } }
+main [id] { scroll-margin-top: calc(var(--alto-cabecera, 3.5rem) + 4.5rem); }
+
+/* Barra «Estás viendo» (components/BarraContexto): segunda línea de la barra superior */
+.barra-contexto { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .75rem; padding:.35rem .75rem .45rem; font-size:.82rem; border-top:1px solid var(--line); min-width:0; }
+@media (min-width: 768px) { .barra-contexto { padding-inline: 1.25rem; } }
 
 .btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.6rem 1.1rem; border-radius:12px; font-weight:700; font-size:.9rem;
   background: var(--accion); color: var(--on-accion); transition: transform 100ms ease-out, filter 160ms; cursor:pointer; }

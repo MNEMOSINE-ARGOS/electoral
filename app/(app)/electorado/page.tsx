@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { useSincronizarContexto } from "@/components/Contexto";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
@@ -37,6 +38,9 @@ export default function Electorado() {
   const ls = useMemo(() => lugares(sel, cat?.estados ?? []), [sel, cat]);
   const claves = ls.map(claveL).join("|");
   const nombreEstado = (e: number) => cat?.estados.find((x) => x.id_estado === e)?.nombre_corto ?? "";
+  // Selección compartida entre pantallas (components/Contexto): aquí solo entidad y municipio (sin cargo ni año)
+  useSincronizarContexto(!!cat, (x) => setSel({ estados: x.estados, municipios: x.municipios, nombres: Object.fromEntries(x.municipios.filter((m) => x.nombres[`m${m}`]).map((m) => [m, x.nombres[`m${m}`]])) }),
+    { estados: sel.estados, municipios: sel.municipios, nombres: Object.fromEntries(Object.entries(sel.nombres).map(([k, v]) => [`m${k}`, v])) });
 
   useEffect(() => {
     setDatos({});

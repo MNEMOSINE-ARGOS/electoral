@@ -9,6 +9,10 @@ import { Buscador } from "@/components/Buscador";
 import { BuscadorMulti } from "@/components/BuscadorMulti";
 import { SelectorCargo } from "@/components/SelectorCargo";
 import { IndicePagina, type ItemIndice } from "@/components/IndicePagina";
+import { useSincronizarContexto, distritosPara } from "@/components/Contexto";
+import { CARGOS } from "@/lib/cargos";
+
+const CARGOS_ID: string[] = CARGOS.map((c) => c.id);
 import { BotonLimpiar, ElegirDetalle, MAX_TERR, NAC, type Terr } from "@/components/FiltroTerritorio";
 import { EstrategiaSecciones } from "@/components/EstrategiaSecciones";
 import { PerfilParticipacion } from "@/components/PerfilParticipacion";
@@ -70,18 +74,24 @@ export default function Secciones() {
   const local = eleccion.startsWith("diputados_locales");
   // Cargos con distrito: el filtro va Entidad → Municipio → Distrito
   const conDistrito = eleccion === "diputados_federales" || eleccion === "presidente" || local;
-  // Parámetros de enlace (desde «Distritos»)
+  // Selección compartida entre pantallas (components/Contexto; también trae el enlace desde «Distritos»: ?eleccion=&anio=&distrito=&municipio=)
+  const pendienteSec = useRef(0); // sección que llegó en la selección: se marca cuando cargan las secciones del territorio
+  useSincronizarContexto(!!cat, (x) => {
+    const cg = CARGOS_ID.includes(x.cargo ?? "") ? x.cargo! : eleccion;
+    setEleccion(cg);
+    if (x.anio) setAnio(x.anio);
+    if (!x.estados.length) return; // sin territorio elegido: Torreón, como siempre
+    setSel({ estados: x.estados, municipios: x.municipios, nombres: Object.fromEntries(x.municipios.filter((m) => x.nombres[`m${m}`]).map((m) => [m, x.nombres[`m${m}`]])) });
+    const conD = cg === "diputados_federales" || cg === "presidente" || cg.startsWith("diputados_locales");
+    setDistSel(conD ? distritosPara(x, cg) : []);
+    pendienteSec.current = x.secciones.length === 1 ? x.secciones[0] : 0;
+  }, { cargo: eleccion, anio, estados: sel.estados, municipios: sel.municipios, distritos: distSel, secciones: secSel ? [secSel] : [],
+    nombres: Object.fromEntries(Object.entries(sel.nombres).map(([k, v]) => [`m${k}`, v])) });
   useEffect(() => {
-    const p = new URLSearchParams(location.search);
-    // ?municipio= y ?distrito= aceptan una o varias claves separadas por coma; la entidad sale de la clave
-    const lista = (k: string) => (p.get(k) ?? "").split(",").map(Number).filter((n) => n > 0);
-    const muns = lista("municipio"), dists = lista("distrito");
-    if (!muns.length && !dists.length) return;
-    setEleccion(p.get("eleccion") || "diputados_federales");
-    if (p.get("anio")) setAnio(Number(p.get("anio")));
-    setSel({ estados: [...new Set([...muns.map((m) => Math.floor(m / 1000)), ...dists.map((x) => Math.floor(x / 100))])], municipios: muns, nombres: {} });
-    setDistSel(dists);
-  }, []);
+    if (!d || !pendienteSec.current) return;
+    if (d.secciones.some((x) => x.seccion_id === pendienteSec.current)) setSecSel(pendienteSec.current);
+    pendienteSec.current = 0;
+  }, [d]);
   const anios = useMemo(() => (cat?.elecciones ?? []).filter((e) => e.eleccion === eleccion && !e.extraordinaria && e.anio >= (local || eleccion === "gobernador" || eleccion === "alcaldes" ? 2015 : 1994)).map((e) => e.anio).filter((a, i, arr) => arr.indexOf(a) === i).sort((a, b) => b - a), [cat, eleccion, local]);
   useEffect(() => { if (anios.length && (anio === null || !anios.includes(anio))) setAnio(anios[0]); }, [anios, anio]);
   const est = sel.estados.join(","), munsSel = sel.municipios.join(",");

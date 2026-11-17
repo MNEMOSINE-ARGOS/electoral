@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowRight, ArrowUpRight, Crosshair, MousePointerClick, Search, Layers3 } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Layers3, Vote, Map as IcoMapa, LineChart, Grid3x3, Layers, Users } from "lucide-react";
 import { GRUPOS, type Pantalla } from "@/lib/navegacion";
 import { CARGOS } from "@/lib/cargos";
 import { ENFOQUES, clasesDe } from "@/lib/analisis";
@@ -13,9 +13,14 @@ import { Plegable } from "@/components/Plegable";
 import { BarrasAnio, BarrasH, Sparkline } from "@/components/MiniGraficas";
 import { Contador } from "@/components/Contador";
 import { VotoAnimado } from "@/components/VotoAnimado";
+import { useContexto } from "@/components/Contexto";
+import { rutaTerritorio } from "@/components/BarraContexto";
+import { SelectorCargo } from "@/components/SelectorCargo";
+import { Territorio } from "@/components/Territorio";
+import { useCatalogo } from "@/components/useCatalogo";
 
 // Portada después de iniciar sesión: el enfoque con su selector (arriba, para que se vea el cambio al elegir), qué cubre la base
-// (cifras y gráficas reales de /api/inicio), cómo se recorre y una tarjeta por pantalla. La lista de pantallas sale de lib/navegacion.ts (la misma que la barra lateral).
+// (cifras y gráficas reales de /api/inicio), «¿Qué quieres saber?» (preguntas que abren cada pantalla con la selección) y una tarjeta por pantalla. La lista de pantallas sale de lib/navegacion.ts (la misma que la barra lateral).
 
 type Stats = {
   anios: { min: number; max: number; n: number };
@@ -71,6 +76,8 @@ export default function Inicio() {
 
       <SeccionEnfoque />
 
+      <Preguntas />
+
       {/* Cobertura */}
       <section aria-labelledby="cobertura" className="space-y-4">
         <div className="space-y-1">
@@ -97,16 +104,6 @@ export default function Inicio() {
               : <div className="inicio-esqueleto h-48" />}
           </div>
         </div>
-      </section>
-
-      {/* Tres pasos */}
-      <section aria-labelledby="pasos" className="space-y-4">
-        <h2 id="pasos" className="inicio-h2">Cómo se recorre</h2>
-        <ol className="grid gap-3 md:grid-cols-3">
-          <Paso n={1} icon={Crosshair} titulo="Elige tu perspectiva" href="#enfoque" texto="General, o un partido." />
-          <Paso n={2} icon={MousePointerClick} titulo="Elige cargo, año y territorio" href="/" texto="Del país a la sección." />
-          <Paso n={3} icon={Search} titulo="Baja a la sección" href="/secciones" texto="Su historia, su gente y su potencial." />
-        </ol>
       </section>
 
       {/* Pantallas */}
@@ -158,13 +155,46 @@ function Cifra({ valor, titulo, nota }: { valor: ReactNode | null; titulo: strin
     </div>);
 }
 
-function Paso({ n, icon: I, titulo, texto, href }: { n: number; icon: typeof Search; titulo: string; texto: string; href: string }) {
-  const contenido = (<>
-    <div className="flex items-center gap-2.5"><span className="inicio-num">{n}</span><I size={18} style={mute} /></div>
-    <p className="font-bold pt-2.5">{titulo}</p>
-    <p className="text-sm pt-0.5" style={{ color: "var(--fg-soft)" }}>{texto}</p>
-  </>);
-  return <li>{href.startsWith("#") ? <a href={href} className="inicio-paso">{contenido}</a> : <Link href={href} className="inicio-paso">{contenido}</Link>}</li>;
+/** «¿Qué quieres saber?»: se elige territorio (y, si se quiere, cargo) una vez, y cada pregunta abre su pantalla con esa selección
+ *  (components/Contexto: la misma que siguen todas las pantallas). */
+function Preguntas() {
+  const cat = useCatalogo();
+  const { ctx, actualizar } = useContexto();
+  const nombreEstado = (id: number) => cat?.estados.find((e) => e.id_estado === id)?.nombre_corto ?? "";
+  const lugar = rutaTerritorio(ctx, nombreEstado).join(" › ");
+  const conMun = ctx.municipios.length > 0;
+  const sel = { estados: ctx.estados, municipios: ctx.municipios, nombres: Object.fromEntries(ctx.municipios.filter((m) => ctx.nombres[`m${m}`]).map((m) => [m, ctx.nombres[`m${m}`]])) };
+  const preguntas = [
+    { href: "/", icon: Vote, t: "¿Quién ganó y por cuánto?", d: "Votación, unidades ganadas, piso y techo de cada partido." },
+    { href: "/estados", icon: IcoMapa, t: "¿Cómo se ve en el mapa?", d: "Quién ganó, qué tan reñido y dónde pesa cada partido, hasta la sección." },
+    { href: "/historico", icon: LineChart, t: "¿Cómo ha cambiado el voto?", d: "La trayectoria de cada fuerza y una elección contra otra." },
+    { href: "/secciones", icon: Grid3x3, t: "¿En qué secciones conviene trabajar?", d: conMun ? "Bastiones, secciones al alcance y votos que faltan para ganar." : "Necesita un municipio: elígelo arriba." },
+    { href: "/distritos", icon: Layers, t: "¿Cómo votan sus distritos?", d: "Distritos federales y locales, con su historia en el mapa vigente." },
+    { href: "/electorado", icon: Users, t: "¿Quién vota aquí?", d: "Edad y sexo de la lista nominal; escolaridad, trabajo y vivienda del Censo 2020." },
+  ];
+  return (
+    <section aria-labelledby="preguntas" className="space-y-4">
+      <div className="space-y-1">
+        <h2 id="preguntas" className="inicio-h2">¿Qué quieres saber?</h2>
+        <p className="text-sm" style={{ color: "var(--fg-soft)" }}>Elige un territorio una vez y toca una pregunta: la pantalla abre con esa selección, y se conserva al pasar de una pantalla a otra.</p>
+      </div>
+      <div className="material p-4 space-y-3">
+        {cat && <Territorio estados={cat.estados} valor={sel} onChange={(x) => actualizar({ estados: x.estados, municipios: x.municipios, distritos: [], secciones: [],
+          nombres: Object.fromEntries(Object.entries(x.nombres).map(([k, v]) => [`m${k}`, v])) })} />}
+        <div className="space-y-1.5"><p className="label">Cargo (opcional)</p>
+          <SelectorCargo variante="chips" judicial={false} valor={ctx.cargo ?? ""} onChange={(id) => actualizar({ cargo: id, anio: null })} /></div>
+        <p className="text-sm"><span style={mute}>Vas a ver: </span><b>{ctx.cargo ? `${NOMBRE_CARGO[ctx.cargo] ?? ctx.cargo} · ` : ""}{lugar}</b></p>
+      </div>
+      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {preguntas.map(({ href, icon: I, t, d }) => (
+          <li key={href}><Link href={href} className="inicio-paso">
+            <I size={18} style={mute} />
+            <p className="font-bold pt-2.5">{t}</p>
+            <p className="text-sm pt-0.5" style={{ color: "var(--fg-soft)" }}>{d}</p>
+          </Link></li>))}
+      </ul>
+    </section>
+  );
 }
 
 /** Cifra principal y vista previa de cada pantalla. Las gráficas con datos son reales; las demás son ilustraciones (aria-hidden). */

@@ -1,12 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { UserCog, Moon, Sun, LogOut, PanelLeft } from "lucide-react";
 import { GRUPOS, INICIO, type Pantalla } from "@/lib/navegacion";
 import { ArgosLogo } from "@/components/ArgosLogo";
 import { MenuUsuario } from "@/components/MenuUsuario";
 import { EnfoqueProvider, SelectorEnfoque } from "@/components/Enfoque";
+import { ContextoProvider } from "@/components/Contexto";
+import { BarraContexto } from "@/components/BarraContexto";
 
 type Yo = { usuario: string; nombre: string; rol: "super" | "usuario" };
 const NAV = [{ titulo: "Guía", items: [INICIO] }, ...GRUPOS];
@@ -32,6 +34,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     try { localStorage.setItem("tema", n); } catch {}
     setOscuro(!oscuro);
   }
+  // Alto real de la barra superior (crece con la barra «Estás viendo»): lo usan la barra lateral y el índice de cada pantalla
+  const cabecera = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = cabecera.current; if (!el) return;
+    const ro = new ResizeObserver(() => document.documentElement.style.setProperty("--alto-cabecera", `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   async function salir() { await fetch("/api/auth/logout", { method: "POST" }); location.href = "/login"; }
   const admin: Pantalla = { href: "/usuarios", label: "Usuarios", icon: UserCog, color: "#64748b", resumen: "", preguntas: [], contiene: [] };
   const grupos = yo?.rol === "super" ? [...NAV, { titulo: "Administración", items: [admin] }] : NAV;
@@ -42,8 +52,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <EnfoqueProvider>
+    <ContextoProvider>
     <div className="min-h-screen">
-      <header className="material-bar sticky top-0 z-40 border-b" style={{ borderColor: "var(--line)" }}>
+      <header ref={cabecera} className="material-bar sticky top-0 z-40 border-b" style={{ borderColor: "var(--line)" }}>
         <div className="flex h-14 items-center justify-between gap-3 px-3 md:px-5">
           <div className="flex items-center gap-2 min-w-0">
             <button className={`${ghost} hidden md:grid`} onClick={alternar} aria-label={lateral ? "Contraer la barra lateral" : "Expandir la barra lateral"} style={{ color: "var(--fg-mute)" }}><PanelLeft size={18} /></button>
@@ -58,6 +69,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               : <button className={ghost} onClick={salir} aria-label="Cerrar sesión" style={{ color: "var(--fg-mute)" }}><LogOut size={17} /></button>}
           </div>
         </div>
+        <BarraContexto />
         <div className="sm:hidden px-3 pb-2 overflow-x-auto"><SelectorEnfoque /></div>
         <nav className="md:hidden flex gap-1 overflow-x-auto px-3 pb-2" aria-label="Secciones">
           {todos.map(({ href, label, icon: I }) => (
@@ -66,7 +78,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
       <div className="flex">
-        <aside className={`hidden md:block sticky top-14 h-[calc(100vh-3.5rem)] shrink-0 overflow-y-auto overflow-x-hidden py-5 border-r transition-[width] duration-300 ease-out ${lateral ? "w-64 px-3" : "w-[4.5rem] px-2 nav-mini"}`}
+        <aside className={`hidden md:block sticky top-[var(--alto-cabecera,3.5rem)] h-[calc(100vh-var(--alto-cabecera,3.5rem))] shrink-0 overflow-y-auto overflow-x-hidden py-5 border-r transition-[width] duration-300 ease-out ${lateral ? "w-64 px-3" : "w-[4.5rem] px-2 nav-mini"}`}
           style={{ borderColor: "var(--line)", background: "color-mix(in srgb, var(--card-solid) 55%, transparent)" }}>
           <nav className="space-y-5" aria-label="Secciones">
             {grupos.map((g) => (
@@ -90,6 +102,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 min-w-0 px-3 py-5 md:px-8 md:py-7 space-y-6 max-w-[1560px] mx-auto">{children}</main>
       </div>
     </div>
+    </ContextoProvider>
     </EnfoqueProvider>
   );
 }
