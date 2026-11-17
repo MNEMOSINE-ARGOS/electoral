@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CartesianGrid, Legend, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChevronRight, Search } from "lucide-react";
 import { SelectorCargo } from "@/components/SelectorCargo";
+import { IndicePagina, type ItemIndice } from "@/components/IndicePagina";
 import { SeccionesInline } from "@/components/SeccionesInline";
 import { ElegirDetalle, FiltroTerritorio, NAC, SIN_FILTRO, filtroDe, territorios, type FiltroT, type Terr } from "@/components/FiltroTerritorio";
 import { LadoALadoResultados } from "@/components/LadoALadoResultados";
@@ -29,6 +30,12 @@ type Unidad = {
 type Nivel = "estado" | "distrito" | "distrito_local" | "municipio";
 type Lectura = "candidatura" | "boleta" | "alcance" | "bloque";
 
+
+// Bloques de la pantalla, en orden, para el índice (cada uno lleva su id abajo)
+const INDICE: ItemIndice[] = [
+  { id: "lado", t: "Lado a lado" }, { id: "votacion", t: "Votación" }, { id: "electorado", t: "Electorado" }, { id: "piso-techo", t: "Piso y techo" },
+  { id: "unidades", t: "Unidades ganadas" }, { id: "secciones", t: "Secciones" }, { id: "trayectoria", t: "Trayectoria" },
+];
 
 export default function ResultadosPorCargo() {
   const cat = useCatalogo();
@@ -195,15 +202,18 @@ export default function ResultadosPorCargo() {
         </div>
       </section>
 
+      {/* Índice de la pantalla: salta a cada bloque (solo los que están dibujados) */}
+      <IndicePagina items={INDICE} />
+
       {/* 2b. Dos o más territorios: lado a lado, y cuál se ve en detalle */}
-      {ts.length > 1 && anio && cat && <LadoALadoResultados ts={ts} cargoId={cargoId} anio={anio} lectura={lectura} estados={cat.estados} onVer={setIDet} />}
+      <div id="lado" className="empty:hidden">{ts.length > 1 && anio && cat && <LadoALadoResultados ts={ts} cargoId={cargoId} anio={anio} lectura={lectura} estados={cat.estados} onVer={setIDet} />}</div>
       {cat && <ElegirDetalle ts={ts} i={Math.min(iDet, ts.length - 1)} onChange={setIDet} estados={cat.estados} />}
 
       {/* 3. Resultado del territorio en el año */}
       {!serie ? <Cargando alto={240} /> : !r ? (
-        <p className="material p-6">No hay resultados de {c.nombre.toLowerCase()} {anio} en {lugar}.{c.ambito === "local" && !terr.estado ? " En cargos locales cada estado vota en su propio año: elige una entidad o un año en que haya votado." : ""}</p>
+        <p id="votacion" className="material p-6">No hay resultados de {c.nombre.toLowerCase()} {anio} en {lugar}.{c.ambito === "local" && !terr.estado ? " En cargos locales cada estado vota en su propio año: elige una entidad o un año en que haya votado." : ""}</p>
       ) : (
-        <section className="grid xl:grid-cols-[1.15fr_1fr] gap-4 entra" key={`${cargoId}-${anio}-${lugar}`}>
+        <section id="votacion" className="grid xl:grid-cols-[1.15fr_1fr] gap-4 entra" key={`${cargoId}-${anio}-${lugar}`}>
           <div className="material p-5 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div><p className="label">{lugar} · {anio}</p><h2 className="text-xl font-bold pt-1">Votación {lectura === "bloque" ? "por bloque" : lectura === "alcance" ? "por alcance de partido" : lectura === "candidatura" ? "por candidatura" : "por opción en la boleta"}</h2></div>
@@ -229,15 +239,15 @@ export default function ResultadosPorCargo() {
       )}
 
       {/* 3a. Electorado por edad y sexo del territorio (corte más reciente) */}
-      {anio && <PerfilEdadTerritorio eleccion={cargoId} anio={anio} terr={terr} lugar={lugar} nombreEstado={nombreEstado(terr.estado)} />}
+      <div id="electorado" className="empty:hidden">{anio && <PerfilEdadTerritorio eleccion={cargoId} anio={anio} terr={terr} lugar={lugar} nombreEstado={nombreEstado(terr.estado)} />}</div>
 
       {/* 3b. Piso y techo histórico (últimas 10 elecciones del cargo en el territorio) */}
-      {serie && serie.length > 0 && <PisoTecho serie={serie} cargoId={cargoId} cargoNombre={c.nombre} lugar={lugar} terr={terr} local={c.ambito === "local"} />}
+      <div id="piso-techo" className="empty:hidden">{serie && serie.length > 0 && <PisoTecho serie={serie} cargoId={cargoId} cargoNombre={c.nombre} lugar={lugar} terr={terr} local={c.ambito === "local"} />}</div>
 
       {/* 4. Unidades de elección: quién ganó cada distrito / entidad / municipio */}
       {!terr.distrito && !terr.municipio && !terr.seccion && (
         !unidades ? <Cargando alto={300} /> : unidades.unidades.length === 0 ? null : (
-          <section className="grid xl:grid-cols-[1fr_1.35fr] gap-4">
+          <section id="unidades" className="grid xl:grid-cols-[1fr_1.35fr] gap-4">
             <div className="material p-5 space-y-4">
               <div><p className="label">{lugar} · {anio}</p><h2 className="text-xl font-bold pt-1">{tituloReparto}</h2></div>
               {reparto && <>
@@ -290,14 +300,14 @@ export default function ResultadosPorCargo() {
       )}
 
       {(terr.distrito > 0 || terr.municipio > 0) && !terr.seccion && anio && (
-        <SeccionesInline eleccion={cargoId} anio={anio} municipio={terr.municipio} distrito={terr.distrito} lugar={lugar}
+        <div id="secciones"><SeccionesInline eleccion={cargoId} anio={anio} municipio={terr.municipio} distrito={terr.distrito} lugar={lugar}
           onElegir={(id) => setTerr({ ...terr, seccion: id, ctx: terr.nombre })}
-          enlace={`/secciones?eleccion=${cargoId}&anio=${anio}&${terr.distrito ? `distrito=${terr.distrito}` : `municipio=${terr.municipio}`}&estado=${terr.estado}`} />
+          enlace={`/secciones?eleccion=${cargoId}&anio=${anio}&${terr.distrito ? `distrito=${terr.distrito}` : `municipio=${terr.municipio}`}&estado=${terr.estado}`} /></div>
       )}
 
       {/* 5. Trayectoria del cargo en el territorio */}
       {serie && graf.filas.length > 1 && (
-        <section className="material p-5 space-y-3">
+        <section id="trayectoria" className="material p-5 space-y-3">
           <div><p className="label">{lugar}</p><h2 className="text-xl font-bold pt-1">Trayectoria de {c.nombre.toLowerCase()} · % de votos {lectura === "candidatura" ? "por candidatura, según el partido que la encabeza" : lectura === "bloque" ? "por bloque" : "a partidos"}</h2></div>
           <div style={{ height: 340 }}>
             <ResponsiveContainer>

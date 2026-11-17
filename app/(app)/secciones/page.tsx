@@ -8,6 +8,7 @@ import { Territorio, type Sel } from "@/components/Territorio";
 import { Buscador } from "@/components/Buscador";
 import { BuscadorMulti } from "@/components/BuscadorMulti";
 import { SelectorCargo } from "@/components/SelectorCargo";
+import { IndicePagina, type ItemIndice } from "@/components/IndicePagina";
 import { BotonLimpiar, ElegirDetalle, MAX_TERR, NAC, type Terr } from "@/components/FiltroTerritorio";
 import { EstrategiaSecciones } from "@/components/EstrategiaSecciones";
 import { PerfilParticipacion } from "@/components/PerfilParticipacion";
@@ -40,6 +41,12 @@ const ORDEN_FICHA = ["presidente", "senado", "diputados_federales", "gobernador"
 const TEND: Record<string, { t: string; c: string }> = { sigue: { t: "Sigue al país", c: "var(--azul)" }, parcial: { t: "Parcial", c: "#d97706" }, independiente: { t: "Independiente", c: "var(--rose)" }, sin_datos: { t: "Sin datos", c: "var(--fg-mute)" } };
 /** Estado inicial (y el de «Limpiar filtros»): Torreón */
 const INICIAL: Sel = { estados: [5], municipios: [5035], nombres: { 5035: "Torreón" } };
+
+// Bloques de la lectura, en orden, para el índice (cada uno lleva su id abajo)
+const INDICE: ItemIndice[] = [
+  { id: "comparados", t: "Comparados" }, { id: "resumen", t: "Resumen" }, { id: "bloques", t: "Fuerza por bloque" }, { id: "seccion", t: "La sección elegida" },
+  { id: "participacion", t: "Participación y perfil" }, { id: "censo", t: "Censo 2020" }, { id: "tabla", t: "Todas las secciones" },
+];
 
 export default function Secciones() {
   const cat = useCatalogo();
@@ -198,7 +205,7 @@ export default function Secciones() {
       </section>
 
       {unidades.length > 1 && anio && (
-        <section className="material p-4 space-y-2">
+        <section id="comparados" className="material p-4 space-y-2">
           <div><p className="label">Lado a lado · {nombreEleccion[eleccion] ?? eleccion} {anio}</p><h2 className="text-lg font-bold pt-0.5">{distSel.length ? "Distritos" : "Municipios"} comparados</h2></div>
           <div className="overflow-x-auto">
             <table className="t">
@@ -237,6 +244,8 @@ export default function Secciones() {
           <button role="tab" aria-pressed={vista === "estrategia"} onClick={() => setVista("estrategia")}><Target size={14} className="inline -mt-0.5 mr-1.5" />Comparación y estrategia</button>
         </div>
       )}
+      {/* Índice de la pantalla: salta a cada bloque de la lectura (solo los que están dibujados) */}
+      {vista === "lectura" && <IndicePagina items={INDICE} />}
       {d && r && anio && vista === "estrategia" && cat && (
         <EstrategiaSecciones eleccion={eleccion} anio={anio} municipio={uMun} distrito={uDis} enMunicipios={munsSel}
           elecciones={cat.elecciones} estado={uEst} />
@@ -244,14 +253,14 @@ export default function Secciones() {
       {d && !r && <p className="material p-6">No hay resultados por sección para esta combinación. Prueba otro año o cargo.</p>}
       {d && r && vista === "lectura" && (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div id="resumen" className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Kpi titulo="Secciones" valor={String(rf!.total)} nota={filtrado ? `de ${r.total} (con filtro)` : undefined} acento />
             <Kpi ayuda="participacion" titulo="Participación" valor={pct(rf!.participacion)} nota="votos entre lista nominal" />
             <Kpi ayuda="cambio_ganador" titulo="Cambiaron de ganador" valor={rf!.comparables ? pct((100 * rf!.cambiaron) / rf!.comparables, 0) : "—"} nota={d.anio_anterior ? `contra ${d.anio_anterior} (${rf!.comparables} comparables)` : "sin elección anterior"} />
             {enfoque === "general" ? <Kpi ayuda="reñidas" titulo="Muy reñidas" valor={String(rf!.clases["reñida"] ?? 0)} nota="margen menor a 5 puntos" />
               : <Kpi ayuda="competitividad_enfoque" titulo={`Reñidas para ${enf.t}`} valor={String((rf!.clases["reñida_gana"] ?? 0) + (rf!.clases["reñida_pierde"] ?? 0))} nota={`gana ${rf!.clases["reñida_gana"] ?? 0} · pierde ${rf!.clases["reñida_pierde"] ?? 0} (por menos de 5 pts)`} />}
           </div>
-          <section className="material p-4 space-y-3">
+          <section id="bloques" className="material p-4 space-y-3">
             <p className="label">Fuerza por bloque (votos a partidos, suma de secciones)</p>
             <div className="flex h-4 rounded-full overflow-hidden">{Object.entries(rf!.bloques).sort((a, b) => b[1] - a[1]).map(([k, v]) => <div key={k} style={{ width: `${(100 * v) / totB}%`, background: BLOQUES[k]?.color }} title={`${BLOQUES[k]?.nombre}: ${pct((100 * v) / totB)}`} />)}</div>
             <div className="flex flex-wrap gap-4 text-sm">{Object.entries(rf!.bloques).sort((a, b) => b[1] - a[1]).map(([k, v]) => <span key={k}><b style={{ color: BLOQUES[k]?.color }}>{pct((100 * v) / totB)}</b> {BLOQUES[k]?.nombre} · gana en {rf!.ganadores[k] ?? 0} secc.</span>)}</div>
@@ -266,12 +275,12 @@ export default function Secciones() {
               {clasesDe(enfoque).filter((c) => enfoque === "general" || r.clases[c.k]).map((c) => <button key={c.k} className="chip" aria-pressed={clase === c.k} onClick={() => setClase(c.k)} title={c.d}>{c.t} · {r.clases[c.k] ?? 0}</button>)}
             </div>
           </section>
-          {!!secSel && <EdadSeccion seccionId={secSel} corteInicial={d.corte_edad} />}
-          {!!secSel && <TendenciaSeccion seccionId={secSel} />}
-          {anio && <PerfilParticipacion secciones={filas} universo={(d?.secciones ?? []).filter((s) => !clase || s.clase === clase)} resaltar={secSel} onElegir={setSecSel} corte={d.corte_edad} anio={anio} filtro={filtrado ? [clase ? ETIQ_CLASE[clase as Clase].t : "", secSel ? `sección ${secSel % 10000}` : ""].filter(Boolean).join(" · ") : ""} />}
-          {anio && uEst > 0 && <PerfilCenso secciones={(d?.secciones ?? []).filter((s) => !clase || s.clase === clase)} estado={uEst} anio={anio} resaltar={secSel} onElegir={setSecSel}
-            nombreEstado={cat?.estados.find((e) => e.id_estado === uEst)?.nombre_corto ?? "el estado"} />}
-          <section className="material p-4 overflow-auto max-h-[560px]">
+          <div id="seccion" className="empty:hidden space-y-6">{!!secSel && <EdadSeccion seccionId={secSel} corteInicial={d.corte_edad} />}
+          {!!secSel && <TendenciaSeccion seccionId={secSel} />}</div>
+          <div id="participacion" className="empty:hidden">{anio && <PerfilParticipacion secciones={filas} universo={(d?.secciones ?? []).filter((s) => !clase || s.clase === clase)} resaltar={secSel} onElegir={setSecSel} corte={d.corte_edad} anio={anio} filtro={filtrado ? [clase ? ETIQ_CLASE[clase as Clase].t : "", secSel ? `sección ${secSel % 10000}` : ""].filter(Boolean).join(" · ") : ""} />}</div>
+          <div id="censo" className="empty:hidden">{anio && uEst > 0 && <PerfilCenso secciones={(d?.secciones ?? []).filter((s) => !clase || s.clase === clase)} estado={uEst} anio={anio} resaltar={secSel} onElegir={setSecSel}
+            nombreEstado={cat?.estados.find((e) => e.id_estado === uEst)?.nombre_corto ?? "el estado"} />}</div>
+          <section id="tabla" className="material p-4 overflow-auto max-h-[560px]">
             <table className="t">
               <thead><tr><th>Sección</th><th>Ganador</th><th>Bloque<Ayuda clave="bloque" /></th><th>Margen<Ayuda clave="margen" /></th><th>{enfoque === "general" ? <>Clase<Ayuda clave="competitividad" /></> : <>Clase · <span style={{ color: enf.color }}>{enf.t}</span><Ayuda clave="competitividad_enfoque" /></>}</th><th>Particip.<Ayuda clave="participacion" /></th><th>Lista nominal</th><th>% mujeres<Ayuda clave="mujeres" /></th><th>Edad media<Ayuda clave="edad_media" /></th><th>18–29<Ayuda clave="jovenes" /></th><th>65+<Ayuda clave="mayores" /></th>{(d.anios_anteriores ?? []).map((a) => <th key={a}>Ganó en {a}</th>)}<th>Continuidad<Ayuda clave="continuidad" /></th><th >Frente al país<Ayuda clave="frente_al_pais" /></th></tr></thead>
               <tbody>

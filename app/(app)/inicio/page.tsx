@@ -189,9 +189,6 @@ function vistaDe(href: string, s: Stats | null, part: { x: number; v: number | n
     case "/estados":
       return { cifra: "32", nota: "entidades",
         vista: <div className="inicio-entidades" aria-hidden>{Array.from({ length: 32 }, (_, i) => <i key={i} style={{ opacity: 0.35 + ((i * 37) % 65) / 100 }} />)}</div> };
-    case "/municipios":
-      return { cifra: s ? fmt(s.municipios) : null, nota: "municipios",
-        vista: <div className="inicio-comparar" aria-hidden><i style={{ width: "82%" }} /><i style={{ width: "58%" }} /><i style={{ width: "70%" }} /></div> };
     case "/distritos":
       return { cifra: s ? String(s.distritos_federales) : null, nota: "distritos federales",
         vista: <div className="inicio-puntos" aria-hidden>{Array.from({ length: s?.distritos_federales || 300 }, (_, i) => <i key={i} />)}</div> };

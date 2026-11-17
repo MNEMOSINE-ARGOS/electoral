@@ -45,8 +45,9 @@ app/(app)/            pantallas (cliente)
                       competitividad, serie y piso/techo. Electorado por edad y sexo del territorio en el corte más reciente
                       (components/PerfilEdadTerritorio, API perfil-edad): pirámide, frente a su estado y al país, y cambio desde el corte
                       de la elección. En un distrito federal, las elecciones de otras distritaciones salen «reconstruidas» (lib/reconstruccion.ts)
-  historico/          evolución de un cargo en un territorio y elección A vs B
-  municipios/         comparar territorios del mismo tipo de elección
+  historico/          «Evolución y comparación», dos pestañas: «Un territorio en el tiempo» (trayectoria y elección A vs B) y «Varios territorios
+                      y años» (components/CompararTerritorios: cada serie es un territorio en un año; se abre con #comparar)
+  municipios/         solo redirige a /historico#comparar (antes «Comparar territorios»; ya no está en el menú)
   estados/            mapa nacional por entidad. «Colorear por» (lib/mapa METRICAS): quién ganó, qué tan reñido, campo de batalla
                       (enfoque; borde en ±5), cambio frente a otra elección del cargo (sin comparación = rayado), participación, fuerza
                       de un partido, fuerza × participación (bivariado 3×3 por terciles). «Dibujar como» (VISTAS): áreas, círculos
@@ -68,7 +69,8 @@ app/(app)/            pantallas (cliente)
   usuarios/           solo superusuarios
   layout.tsx          barra superior (selector de enfoque, tema, cuenta) y barra lateral
 app/api/              rutas de datos (route handlers) y auth/
-components/           SelectorCargo (el mismo selector de cargo en Resultados, Histórico, Comparar, Mapa, Distritos y Secciones: icono, nombre y
+components/           IndicePagina (barra «En esta pantalla» pegada arriba en Resultados y Lectura por sección: un enlace por bloque con
+                      `id`, solo los que están dibujados, marca en cuál vas; al agregar un bloque a esas pantallas, agrégalo a su INDICE), SelectorCargo (el mismo selector de cargo en Resultados, Histórico, Comparar, Mapa, Distritos y Secciones: icono, nombre y
                       unidad de lib/cargos.ts; tarjetas en todas, con la del Poder Judicial, por decisión del usuario; los cargos que la
                       pantalla no puede mostrar salen atenuados con su motivo, no se esconden. `nombreEleccion` en lib/partidos.ts usa los mismos
                       nombres: Presidencia, Diputaciones federales, Gubernaturas, Ayuntamientos, Diputaciones locales), Buscador (autocompletado), Territorio, Piramide, PisoTecho, TendenciaSeccion, EdadSeccion,
@@ -91,7 +93,9 @@ lib/
   auth.ts             cookie firmada (Web Crypto)        vigencia.ts  usuario activo + rol vigente (caché 30 s)
   password.ts         bcrypt                              superusuario.ts  guardia soloSuper()
   mapa.ts             colores y leyendas de los mapas en pasos fijos (margen 5/10/20; participación 45/55/65/75; partido 10/20/35/50)
-  navegacion.ts       pantallas de la app (menú lateral y portada): resumen, preguntas que responde, qué contiene, si usa enfoque
+  navegacion.ts       pantallas de la app (menú lateral y portada): resumen, preguntas que responde, qué contiene, si usa enfoque.
+                      Grupos por pregunta (decisión del usuario): ¿Qué pasó? (Mapa, Resultados) · ¿Cómo cambió? (Evolución) ·
+                      ¿Dónde trabajar? (Secciones, Distritos) · ¿Quién vota? (Electorado) · Poder Judicial
   partidos.ts         colores y nombres                   cargos.ts    los 6 cargos y su unidad de elección
 proxy.ts              sesión obligatoria; /usuarios solo super (Next 16: «proxy» reemplaza a middleware y corre en Node)
 scripts/crear_superusuarios.ts

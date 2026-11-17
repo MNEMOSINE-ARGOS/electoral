@@ -97,7 +97,7 @@ export default function Distritos() {
   return (
     <>
       <header className="space-y-1">
-        <p className="label">Territorio</p>
+        <p className="label">¿Dónde trabajar?</p>
         <h1 className="text-3xl md:text-[2.6rem] font-bold">Distritos y circunscripciones</h1>
         <p style={{ color: "var(--fg-soft)" }}>Cada cargo se lee en su demarcación: diputados federales por distrito (300) y, para la lista plurinominal, por circunscripción (5); diputados locales por distrito local; presidente por distrito solo como lectura territorial. El Senado se elige por entidad (ver «Resultados por cargo» o «Mapa nacional»).</p>
       </header>

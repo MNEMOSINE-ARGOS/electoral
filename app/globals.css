@@ -45,7 +45,12 @@ h1 { letter-spacing: -0.025em; }
   background: var(--card-solid); color: var(--fg-soft); border:1px solid var(--line-strong); transition: transform 100ms ease-out, background 160ms, color 160ms; cursor:pointer; }
 .chip:hover { border-color: var(--fg-mute); }
 .chip:active, .btn:active, .tarjeta-btn:active { transform: scale(.97); }
-.chip[aria-pressed="true"] { background: var(--fg); color: var(--card-solid); border-color: var(--fg); }
+.chip[aria-pressed="true"], .chip[aria-current="true"] { background: var(--fg); color: var(--card-solid); border-color: var(--fg); }
+
+/* Índice de pantallas largas (components/IndicePagina): pegado bajo la barra superior desde md; los bloques dejan espacio al saltar */
+.indice-pagina { display:flex; align-items:center; gap:.75rem; padding:.5rem .75rem; border-radius:14px; z-index:20; }
+@media (min-width: 768px) { .indice-pagina { position:sticky; top:4.25rem; } }
+main [id] { scroll-margin-top: 8.5rem; }
 
 .btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.6rem 1.1rem; border-radius:12px; font-weight:700; font-size:.9rem;
   background: var(--accion); color: var(--on-accion); transition: transform 100ms ease-out, filter 160ms; cursor:pointer; }

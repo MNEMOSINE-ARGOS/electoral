@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, GitCompareArrows, LineChart as LineChartIco } from "lucide-react";
+import { CompararTerritorios } from "@/components/CompararTerritorios";
 import { api, type Resultado } from "@/lib/api";
 import { useCatalogo } from "@/components/useCatalogo";
 import { Cargando } from "@/components/Kpi";
@@ -55,6 +56,15 @@ export default function Historico() {
   const [aB, setAB] = useState(0);
   const [elegidos, setElegidos] = useState<string[] | null>(null);
   const c = cargoDe(cargoId);
+  // Pestañas: «tiempo» (trayectoria y elección contra elección) o «comparar» (antes la pantalla Comparar territorios; /municipios llega con #comparar)
+  const [modo, setModo] = useState<"tiempo" | "comparar">("tiempo");
+  useEffect(() => {
+    const leer = () => setModo(location.hash === "#comparar" ? "comparar" : "tiempo");
+    leer();
+    window.addEventListener("hashchange", leer);
+    return () => window.removeEventListener("hashchange", leer);
+  }, []);
+  function cambiarModo(m: "tiempo" | "comparar") { setModo(m); history.replaceState(null, "", m === "comparar" ? "#comparar" : location.pathname); }
 
   useEffect(() => {
     setSerie(null);
@@ -130,11 +140,16 @@ export default function Historico() {
   return (
     <>
       <header className="space-y-1.5">
-        <p className="label">Resultados</p>
+        <p className="label">¿Cómo cambió?</p>
         <h1 className="text-3xl md:text-[2.6rem] font-bold">Evolución y comparación</h1>
-        <p className="max-w-3xl" style={{ color: "var(--fg-soft)" }}>Trayectoria histórica de un cargo en un territorio, con el periodo y las fuerzas que elijas, y la comparación directa entre dos elecciones del mismo cargo. Cada elección es independiente: nunca se suman años.</p>
+        <p className="max-w-3xl" style={{ color: "var(--fg-soft)" }}>Cómo ha cambiado un cargo: en un territorio a lo largo de los años, o entre territorios y años que tú eliges. Cada elección es independiente: nunca se suman años.</p>
       </header>
+      <div className="seg" role="tablist" aria-label="Vista">
+        <button role="tab" aria-selected={modo === "tiempo"} aria-pressed={modo === "tiempo"} onClick={() => cambiarModo("tiempo")}><LineChartIco size={14} className="inline -mt-0.5 mr-1.5" />Un territorio en el tiempo</button>
+        <button role="tab" aria-selected={modo === "comparar"} aria-pressed={modo === "comparar"} onClick={() => cambiarModo("comparar")}><GitCompareArrows size={14} className="inline -mt-0.5 mr-1.5" />Varios territorios y años</button>
+      </div>
 
+      {modo === "comparar" ? <CompararTerritorios /> : <>
       <section className="material p-4 md:p-5 space-y-4">
         <SelectorCargo valor={cargoId} onChange={(id) => { setCargoId(id as CargoId); setFiltro(SIN_FILTRO); }} />
         {cat && <FiltroTerritorio estados={cat.estados} cargo={cargoId} anio={aB || null} valor={filtro} onChange={setFiltro} />}
@@ -291,6 +306,7 @@ export default function Historico() {
           </section>
         </>
       )}
+      </>}
     </>
   );
 }
