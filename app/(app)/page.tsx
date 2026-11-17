@@ -166,7 +166,7 @@ export default function ResultadosPorCargo() {
       </header>
 
       {/* 1. Cargo */}
-      <SelectorCargo variante="tarjetas" valor={cargoId} onChange={(id) => elegirCargo(id as CargoId)} judicial />
+      <SelectorCargo valor={cargoId} onChange={(id) => elegirCargo(id as CargoId)} />
 
       {/* 2. Año y territorio */}
       <section className="material p-4 md:p-5 space-y-4 relative z-10">

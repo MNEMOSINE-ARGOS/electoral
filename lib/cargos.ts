@@ -3,7 +3,7 @@ import { Landmark, Building, Users2, Crown, Building2, Home } from "lucide-react
 // Cada cargo se elige en su propia demarcación ("unidad"). La app muestra los resultados en esa unidad.
 export type CargoId = "presidente" | "senado" | "diputados_federales" | "gobernador" | "diputados_locales_mr" | "alcaldes";
 export const CARGOS: { id: CargoId; nombre: string; unidad: string; unidades: string; regla: string; icon: typeof Landmark; ambito: "federal" | "local" }[] = [
-  { id: "presidente", nombre: "Presidencia", unidad: "nacional", unidades: "entidades", ambito: "federal", icon: Landmark,
+  { id: "presidente", nombre: "Presidencia", unidad: "todo el país", unidades: "entidades", ambito: "federal", icon: Landmark,
     regla: "Se elige en una sola circunscripción nacional. Se lee por entidad y, dentro de cada una, por distrito federal." },
   { id: "senado", nombre: "Senado", unidad: "entidad", unidades: "entidades", ambito: "federal", icon: Building,
     regla: "Por entidad: 2 escaños a la fórmula ganadora y 1 a la primera minoría (96), más 32 por lista nacional." },

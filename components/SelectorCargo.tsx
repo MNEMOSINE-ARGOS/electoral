@@ -5,7 +5,7 @@ import { CARGOS } from "@/lib/cargos";
 import { nombreEleccion } from "@/lib/partidos";
 
 // Selector de cargo común a todas las pantallas: mismo icono, nombre y unidad («por distrito», «por entidad»…) que en lib/cargos.ts.
-// «tarjetas» = Resultados (grande, con la tarjeta del Poder Judicial); «chips» = pantallas con más controles arriba (compacto).
+// «tarjetas» en todas las pantallas (decisión del usuario), con la tarjeta que lleva al Poder Judicial; «chips» queda como versión compacta.
 // Los cargos que la pantalla no puede mostrar se dejan atenuados con su motivo, no se esconden.
 
 type Opcion = { id: string; nombre: string; unidad: string; icon: typeof Building2 };
@@ -14,7 +14,7 @@ const EXTRAS: Record<string, Omit<Opcion, "id">> = {
   diputados_locales_rp: { nombre: "Diputaciones locales RP", unidad: "lista estatal", icon: Building2 },
 };
 
-export function SelectorCargo({ valor, onChange, variante = "chips", disponibles, extras = [], unidad = {}, motivo, judicial = false }: {
+export function SelectorCargo({ valor, onChange, variante = "tarjetas", disponibles, extras = [], unidad = {}, motivo, judicial = true }: {
   valor: string;
   onChange: (id: string) => void;
   variante?: "tarjetas" | "chips";
@@ -26,7 +26,7 @@ export function SelectorCargo({ valor, onChange, variante = "chips", disponibles
   unidad?: Record<string, string>;
   /** Por qué un cargo no está disponible (title y lector de pantalla). */
   motivo?: (id: string) => string;
-  /** Tarjeta que lleva a la elección judicial (solo en Resultados). */
+  /** Tarjeta que lleva a la elección judicial (es un enlace, no un cargo que se elija en la pantalla). */
   judicial?: boolean;
 }) {
   const ok = (id: string) => !disponibles || disponibles.includes(id);
@@ -34,11 +34,12 @@ export function SelectorCargo({ valor, onChange, variante = "chips", disponibles
     ...CARGOS.map((c) => ({ id: c.id as string, nombre: c.nombre, unidad: c.unidad, icon: c.icon })),
     ...extras.filter((id) => ok(id)).map((id) => ({ id, ...(EXTRAS[id] ?? { nombre: nombreEleccion[id] ?? id, unidad: "", icon: Building2 }) })),
   ];
-  const textoUnidad = (o: Opcion) => unidad[o.id] ?? (o.unidad ? `por ${o.unidad}` : "");
+  // «por distrito», «por entidad»…; presidencia dice solo «todo el país»
+  const textoUnidad = (o: Opcion) => unidad[o.id] ?? (!o.unidad ? "" : o.unidad === "todo el país" ? o.unidad : `por ${o.unidad}`);
   const porQue = (id: string) => motivo?.(id) ?? "Este cargo no está disponible en esta pantalla";
 
   if (variante === "tarjetas") return (
-    <section className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2.5" aria-label="Cargo">
+    <section className={`grid grid-cols-2 md:grid-cols-4 ${opciones.length + (judicial ? 1 : 0) > 7 ? "xl:grid-cols-8" : "xl:grid-cols-7"} gap-2.5`} aria-label="Cargo">
       {opciones.map((o) => {
         const activo = ok(o.id), sel = o.id === valor;
         return (

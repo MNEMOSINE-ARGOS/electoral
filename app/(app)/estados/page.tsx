@@ -162,8 +162,7 @@ export default function Estados() {
 
       <section className="material p-4 space-y-3">
         <div className="flex justify-end -mb-1"><BotonLimpiar visible={sucio} onClick={limpiar} /></div>
-        <div className="mapa-ctl"><span className="label">Elección</span>
-          <SelectorCargo valor={eleccion} onChange={setEleccion} disponibles={tipos} extras={["diputados_locales_rp"]} motivo={() => "Sin elecciones de este cargo en la base"} /></div>
+        <SelectorCargo valor={eleccion} onChange={setEleccion} disponibles={tipos} extras={["diputados_locales_rp"]} motivo={() => "Sin elecciones de este cargo en la base"} />
         <div className="mapa-ctl"><span className="label">Año</span>
           <div className="flex flex-wrap gap-1.5">{anios.map((a) => {
             const n = vot?.get(a)?.size ?? 0, ok = activo(a, sel);
@@ -192,7 +191,7 @@ export default function Estados() {
 
       {Object.keys(prep).length > 0 && filas && <AvisoPrep meta={Object.values(prep)[0]} donde={Object.keys(prep).map((k) => nombres[Number(k)]).join(", ")} />}
       {local && filas && filas.length > 0 && (
-        <p className="aviso text-sm">{nombreEleccion[eleccion] ?? eleccion} es un cargo local: en {anio} votaron <b>{unidades.length} de 32</b> entidades; las demás aparecen en gris. La suma «nacional» de un cargo local no se compara entre años.</p>
+        <p className="aviso text-sm">{nombreEleccion[eleccion] ?? eleccion}: cargo local. En {anio} votaron <b>{unidades.length} de 32</b> entidades; las demás aparecen en gris. La suma «nacional» de un cargo local no se compara entre años.</p>
       )}
 
       <div ref={detalle} className="scroll-mt-20">

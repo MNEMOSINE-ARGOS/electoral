@@ -13,8 +13,9 @@ export function colorPartido(p: string): string {
   return `hsl(${h} 35% 50%)`;
 }
 export const nombreEleccion: Record<string, string> = {
-  presidente: "Presidente", senado: "Senado", diputados_federales: "Diputados federales", gobernador: "Gobernador",
-  alcaldes: "Alcaldes", diputados_locales_mr: "Diputados locales (MR)", diputados_locales_rp: "Diputados locales (RP)",
+  // Mismos nombres que lib/cargos.ts (selector de cargo y títulos)
+  presidente: "Presidencia", senado: "Senado", diputados_federales: "Diputaciones federales", gobernador: "Gubernaturas",
+  alcaldes: "Ayuntamientos", diputados_locales_mr: "Diputaciones locales", diputados_locales_rp: "Diputaciones locales RP",
 };
 /** Votos por partido "alcance": fila del partido más coaliciones que lo contienen (no suma 100%). */
 export function alcance(partidos: Record<string, number>): Record<string, number> {
