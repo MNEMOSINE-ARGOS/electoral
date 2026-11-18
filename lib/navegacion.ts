@@ -23,7 +23,7 @@ export const GRUPOS: { titulo: string; items: Pantalla[] }[] = [
     { href: "/", label: "Resultados por cargo", icon: Vote, color: "#F0627A", enfoque: true,
       resumen: "Elige un cargo, un año y un territorio, y lee quién ganó, por cuánto y con qué historia.",
       preguntas: ["¿Quién ganó y por qué margen?", "¿Cuántas unidades ganó cada fuerza?", "¿Cuál es el piso y el techo de un partido aquí y cuántos votos puede aspirar a sacar?"],
-      contiene: ["Cargo → año → territorio: entidad, distrito, municipio o sección", "Votación por partido y por coalición, con cuatro lecturas (candidatura, boleta, alcance, bloque)",
+      contiene: ["Cargo → año → territorio: entidad, distrito, municipio o sección", "En resumen: quién ganó, por cuánto, si repitió, participación y unidades ganadas, en frases", "Votación por partido y por coalición, con cuatro lecturas (candidatura, boleta, alcance, bloque)",
         "Unidades ganadas y competitividad (bastión, ventaja, competitiva, reñida)", "Trayectoria del cargo en ese territorio", "Piso y techo histórico y votos posibles hoy"] },
   ] },
   { titulo: "¿Cómo cambió?", items: [
@@ -37,7 +37,7 @@ export const GRUPOS: { titulo: string; items: Pantalla[] }[] = [
     { href: "/secciones", label: "Lectura por sección", icon: Grid3x3, color: "#D97706", enfoque: true,
       resumen: "La unidad más fina: una sección electoral, su historia, su gente y su comportamiento.",
       preguntas: ["¿Cómo ha votado esta sección en cada elección?", "¿Sigue al país o va por su cuenta?", "¿Dónde conviene trabajar y cuántos votos faltan para ganar?"],
-      contiene: ["Buscador de secciones dentro de un territorio", "Historial electoral de la sección", "Tendencia frente al país y frente a su estado",
+      contiene: ["Buscador de secciones dentro de un territorio", "En resumen: fuerza por bloque, secciones reñidas, cambio de ganador y participación, en frases", "Historial electoral de la sección", "Tendencia frente al país y frente a su estado",
         "Edad y sexo del electorado (pirámide y edad media)", "Perfil de participación", "Estrategia: bastiones, conquistas, secciones al alcance y votos para ganar"] },
     { href: "/distritos", label: "Distritos y circunscripciones", icon: Layers, color: "#0E71AF", enfoque: true,
       resumen: "Distritos federales y locales, y las cinco circunscripciones plurinominales.",

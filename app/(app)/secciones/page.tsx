@@ -25,6 +25,7 @@ import { TendenciaSeccion } from "@/components/TendenciaSeccion";
 import { BLOQUES, ENFOQUES, ETIQ_CLASE, clasesDe, nombreCandidatura, type Clase } from "@/lib/analisis";
 import { CeldaClase, useEnfoque } from "@/components/Enfoque";
 import { Ayuda } from "@/components/Ayuda";
+import { ResumenPantalla } from "@/components/ResumenPantalla";
 import { colorPartido, nombreEleccion } from "@/lib/partidos";
 import { fmt, pct } from "@/lib/format";
 
@@ -46,7 +47,7 @@ const TEND: Record<string, { t: string; c: string }> = { sigue: { t: "Sigue al p
 
 // Bloques de la lectura, en orden, para el índice (cada uno lleva su id abajo)
 const INDICE: ItemIndice[] = [
-  { id: "comparados", t: "Comparados" }, { id: "resumen", t: "Resumen" }, { id: "bloques", t: "Fuerza por bloque" }, { id: "seccion", t: "La sección elegida" },
+  { id: "comparados", t: "Comparados" }, { id: "en-resumen", t: "En resumen" }, { id: "resumen", t: "Cifras" }, { id: "bloques", t: "Fuerza por bloque" }, { id: "seccion", t: "La sección elegida" },
   { id: "participacion", t: "Participación y perfil" }, { id: "censo", t: "Censo 2020" }, { id: "tabla", t: "Todas las secciones" },
 ];
 
@@ -167,6 +168,30 @@ export default function Secciones() {
     return o;
   }, [r, filas, filtrado]);
   const totB = rf ? Object.values(rf.bloques).reduce((a, b) => a + b, 0) : 0;
+
+  // «En resumen»: frases con las mismas cifras de abajo (con filtro, solo las secciones filtradas)
+  const resumen = (() => {
+    if (!rf || !rf.total) return [];
+    const bs = Object.entries(rf.bloques).sort((a, b) => b[1] - a[1]);
+    const [b1, b2] = bs;
+    const nb = (k: string) => BLOQUES[k]?.nombre ?? k;
+    const cl = (k: string) => rf.clases[k] ?? 0;
+    const gana = cl("bastion") + cl("ventaja") + cl("competitiva") + cl("reñida_gana");
+    const pierde = cl("reñida_pierde") + cl("alcance") + cl("desventaja") + cl("adversa");
+    const conPart = filas.filter((x) => x.confiable && x.participacion !== null).sort((a, b) => a.participacion! - b.participacion!);
+    const lo = conPart[0], hi = conPart.at(-1);
+    const sec = (x: Sec) => <button className="mapa-link" onClick={() => setSecSel(x.seccion_id)}>{x.seccion}</button>;
+    return [
+      b1 && totB > 0 && { color: BLOQUES[b1[0]]?.color ?? "var(--fg-mute)", texto: <><b>{nb(b1[0])}</b> fue la primera fuerza con <b>{pct((100 * b1[1]) / totB)}</b> de los votos a partidos y ganó <b>{rf.ganadores[b1[0]] ?? 0} de {rf.total}</b> secciones
+        {b2 && <>; {(rf.ganadores[b2[0]] ?? 0) > (rf.ganadores[b1[0]] ?? 0) ? <>pero <b>{nb(b2[0])}</b> ({pct((100 * b2[1]) / totB)}) ganó más secciones: <b>{rf.ganadores[b2[0]]}</b></> : <>le sigue {nb(b2[0])} con {pct((100 * b2[1]) / totB)} ({rf.ganadores[b2[0]] ?? 0} secciones)</>}</>}.</> },
+      enfoque === "general"
+        ? { color: ETIQ_CLASE["reñida"].color, texto: <><b>{cl("reñida")}</b> {cl("reñida") === 1 ? "sección se decidió" : "secciones se decidieron"} por menos de 5 puntos y <b>{cl("bastion")}</b> {cl("bastion") === 1 ? "es bastión" : "son bastiones"} (20 puntos o más).</> }
+        : { color: enf.color, texto: <>Desde <b style={{ color: enf.color }}>{enf.t}</b>: gana en <b>{gana}</b> y pierde en <b>{pierde}</b>{pierde > 0 && <>; de esas, {cl("reñida_pierde")} por menos de 5 puntos y {cl("alcance")} por 5 a 10 (al alcance)</>}
+          {cl("sin_candidatura") > 0 && <>; sin candidatura en {cl("sin_candidatura")}</>}.</> },
+      rf.comparables > 0 && d?.anio_anterior && { color: "var(--rose)", texto: <><b>{pct((100 * rf.cambiaron) / rf.comparables, 0)}</b> de las secciones cambió de ganador frente a {d.anio_anterior} ({rf.cambiaron} de {rf.comparables} comparables{rf.total > rf.comparables && <>; {rf.total - rf.comparables} sin comparación</>}).</> },
+      rf.participacion !== null && { color: "var(--azul)", texto: <>Votó <b>{pct(rf.participacion)}</b> de la lista nominal{lo && hi && conPart.length > 1 && <>: desde {pct(lo.participacion)} en la sección {sec(lo)} hasta {pct(hi.participacion)} en la {sec(hi)}{hi.participacion! > 100 && <> (más de 100%: suele deberse a una casilla especial, donde votan personas de otras secciones)</>}</>}.</> },
+    ];
+  })();
   // Estado inicial de la pantalla (diputaciones federales, el año más reciente, sin territorio): «Limpiar filtros» regresa aquí
   const sucio = eleccion !== "diputados_federales" || sel.estados.length > 0 || sel.municipios.length > 0 || distSel.length > 0 || !!clase || !!secSel
     || vista !== "lectura" || iDet !== 0 || (anio !== null && anios.length > 0 && anio !== anios[0]);
@@ -261,6 +286,8 @@ export default function Secciones() {
       {d && !r && <p className="material p-6">No hay resultados por sección para esta combinación. Prueba otro año o cargo.</p>}
       {d && r && vista === "lectura" && (
         <>
+          <ResumenPantalla titulo={`En resumen · ${unidad ? nomU(unidad) : ""} · ${nombreEleccion[eleccion] ?? eleccion} ${anio}${filtrado ? " · con filtro" : ""}`} frases={resumen}
+            nota="Frases calculadas con las cifras de esta pantalla: bloques sobre los votos a partidos de la suma de secciones; competitividad entre las dos primeras (o desde el partido de enfoque); cambio de ganador solo en secciones que existían en ambas elecciones. Toca un número de sección para elegirla. Lectura analítica, no oficial." />
           <div id="resumen" className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Kpi titulo="Secciones" valor={String(rf!.total)} nota={filtrado ? `de ${r.total} (con filtro)` : undefined} acento />
             <Kpi ayuda="participacion" titulo="Participación" valor={pct(rf!.participacion)} nota="votos entre lista nominal" />

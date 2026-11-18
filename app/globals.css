@@ -10,6 +10,7 @@
   --hombre: #0e71af; --mujer: #d81b60;
   --serie-fed: #2d5f94; --serie-loc: #d9608f; /* gráficas de la portada: azul profundo + rosa suave, validadas (6 comprobaciones; CVD ΔE 10.2) sobre blanco */
   --titulo-acento: var(--rose); /* «sección por sección.» de la portada */
+  --mapa-fondo: #eef2f6; --mapa-borde: rgba(15,23,42,.07); --mapa-sombra: drop-shadow(0 2px 3px rgba(15,23,42,.14)); /* área de los mapas (decisión del usuario: gris pizarra, solo en modo claro) */
   --ok: #0e71af; --warn: #a16207; --bad: #b91c1c;
   --shadow: 0 1px 2px rgba(15,23,42,.05), 0 6px 24px rgba(15,23,42,.06);
   --shadow-lg: 0 2px 4px rgba(15,23,42,.06), 0 18px 48px rgba(15,23,42,.10);
@@ -22,6 +23,7 @@
   --hombre: #6bb8ea; --mujer: #f06292;
   --serie-fed: #4f86c9; --serie-loc: #d0608c; /* pasos propios del modo oscuro, validados sobre #0f172a */
   --titulo-acento: var(--rose);
+  --mapa-fondo: transparent; --mapa-borde: transparent; --mapa-sombra: none; /* en oscuro el mapa sigue como estaba */
   --ok: #6bb8ea; --warn: #e3b341; --bad: #f87171;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 24px rgba(0,0,0,.3); --shadow-lg: 0 2px 4px rgba(0,0,0,.4), 0 18px 48px rgba(0,0,0,.45);
 }
@@ -303,6 +305,8 @@ html { scroll-behavior: smooth; }
 :root[data-theme="dark"] .btn-suave { color: #9cc0ea; background: color-mix(in srgb, var(--serie-fed) 22%, transparent); }
 
 /* Mapas (components/MapaGeo, MosaicoEstados, MapaPiezas): el color sale al pasar entre métricas, la leyenda resalta sus unidades */
+.mapa-geo-panel { background: var(--mapa-fondo); border-radius: 16px; box-shadow: inset 0 0 0 1px var(--mapa-borde); padding: 8px; }
+.mapa-geo-panel > svg { filter: var(--mapa-sombra); }
 .mapa-geo-p { transition: fill 380ms ease, opacity 200ms ease; outline: none; }
 .mapa-geo-p[data-tenue] { opacity: .16; }
 .mapa-geo-p:focus-visible { stroke: var(--accion); stroke-width: 2.5; }
@@ -334,6 +338,7 @@ html { scroll-behavior: smooth; }
 .mapa-frases li { display:flex; gap:.6rem; align-items:baseline; }
 .mapa-frases li > .mapa-ley-c { transform: translateY(1px); }
 .mapa-frases b { color: var(--fg); }
+.resumen-frases { font-size:.95rem; }
 .mapa-link { font-weight:700; color: var(--fg); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; cursor:pointer; }
 .mapa-link:hover { text-decoration-color: var(--accion); }
 .mapa-kpi { display:grid; gap:.1rem; padding:.55rem .4rem; border-radius:12px; background: color-mix(in srgb, var(--fg) 4%, transparent); }

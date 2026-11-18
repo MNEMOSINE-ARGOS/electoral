@@ -138,7 +138,7 @@ export function MapaGeo({ url, idProp = "id", colores, seleccion, onSelect, tool
   const anchoCaja = caja.current?.clientWidth ?? 600;
 
   return (
-    <div ref={caja} className="mapa-geo relative select-none" onPointerLeave={() => setHover(null)}>
+    <div ref={caja} className={`mapa-geo relative select-none${simple ? "" : " mapa-geo-panel"}`} onPointerLeave={() => setHover(null)}>
       <svg ref={svg} viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block touch-none" role="img" aria-label="Mapa"
         style={{ cursor: arrastre.current?.movio ? "grabbing" : t.k > 1 ? "grab" : "default" }}
         onPointerDown={(e) => { arrastre.current = { clientX: e.clientX, clientY: e.clientY, t, movio: false }; (e.target as Element).setPointerCapture?.(e.pointerId); }}

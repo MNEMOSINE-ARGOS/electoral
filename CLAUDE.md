@@ -79,7 +79,10 @@ components/           Contexto (selección compartida entre pantallas, decisión
                       guarda lo que el usuario cambie; usa solo lo que entiende (Electorado: entidad y municipio; el mapa abre una entidad y, dentro, un
                       municipio, distrito local y sección; distritos solo si son del tipo del cargo, distritosPara). Al cambiar de cargo, Resultados y
                       Evolución conservan entidad y municipio. Toda pantalla nueva con cargo, año o territorio debe usarla),
-                      BarraContexto («Estás viendo: cargo año · entidad › municipio › …» y «Copiar enlace»; no aparece sin selección), IndicePagina (barra «En esta pantalla» pegada arriba en Resultados y Lectura por sección: un enlace por bloque con
+                      BarraContexto («Estás viendo: cargo año · entidad › municipio › …» y «Copiar enlace»; no aparece sin selección), ResumenPantalla («En resumen»: 3 a 5 frases con las cifras de la pantalla, antes de tablas y gráficas, en Resultados y Lectura por sección;
+                      cada pantalla arma sus frases con los mismos datos que dibuja abajo. Resultados: siempre por candidatura, aunque se elija otra lectura;
+                      unidades ganadas por el bloque de la candidatura ganadora (diputaciones federales 2024 = 256 Morena y aliados, como §8).
+                      Lectura por sección: con filtro, solo las secciones filtradas; los números de sección se tocan para elegirla), IndicePagina (barra «En esta pantalla» pegada arriba en Resultados y Lectura por sección: un enlace por bloque con
                       `id`, solo los que están dibujados, marca en cuál vas; al agregar un bloque a esas pantallas, agrégalo a su INDICE), SelectorCargo (el mismo selector de cargo en Resultados, Histórico, Comparar, Mapa, Distritos y Secciones: icono, nombre y
                       unidad de lib/cargos.ts; tarjetas en todas, con la del Poder Judicial, por decisión del usuario (en celular, una fila que se
                       desliza de lado, con la elegida a la vista); los cargos que la
@@ -87,7 +90,8 @@ components/           Contexto (selección compartida entre pantallas, decisión
                       nombres: Presidencia, Diputaciones federales, Gubernaturas, Ayuntamientos, Diputaciones locales), Buscador (autocompletado), Territorio, Piramide, PisoTecho, TendenciaSeccion, EdadSeccion,
                       Enfoque (contexto + selector + CeldaClase), EstrategiaSecciones, PerfilParticipacion, Waffle, Kpi,
                       Plegable (detalle un nivel abajo), BotonLimpiar (en FiltroTerritorio: «Limpiar filtros» en toda pantalla con filtros; aparece solo si algo cambió y regresa la pantalla a su estado inicial), MiniGraficas (SVG; colores --serie-fed/--serie-loc validados para daltonismo),
-                      MapaGeo (coroplético con zoom, tarjeta, etiquetas, círculos, bordes, rayado; `simple` para miniaturas),
+                      MapaGeo (coroplético con zoom, tarjeta, etiquetas, círculos, bordes, rayado; `simple` para miniaturas; en modo claro el área del mapa va
+                      sobre gris pizarra `--mapa-fondo` #eef2f6 con borde interior y sombra bajo el territorio, por decisión del usuario; en oscuro, sin cambio; las miniaturas no lo llevan),
                       MosaicoEstados, MapaPiezas (leyenda, matriz bivariada y ficha), useCapaMapa (métrica + vista → colores, círculos,
                       bordes, leyenda: lo comparten el mapa nacional, el de la entidad y el del municipio), MapaEntidad…
 lib/

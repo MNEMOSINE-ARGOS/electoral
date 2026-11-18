@@ -16,11 +16,12 @@ import { Cargando, Confianza } from "@/components/Kpi";
 import { Barra, Waffle } from "@/components/Waffle";
 import { CARGOS, cargo as cargoDe, type CargoId } from "@/lib/cargos";
 import { alcance, colorPartido } from "@/lib/partidos";
-import { BLOQUES, ENFOQUES, ETIQ_CLASE, clasesDe, type Clase, indicadores, nombreCandidatura, pedersen, porBloque, porCandidatura, porFamilia } from "@/lib/analisis";
+import { BLOQUES, bloqueDe, ENFOQUES, ETIQ_CLASE, ETIQ_COMP, clasesDe, claseEnfoque, competitividad, faltanParaGanar, type Clase, indicadores, nombreCandidatura, pedersen, porBloque, porCandidatura, porFamilia } from "@/lib/analisis";
 import { useEnfoque } from "@/components/Enfoque";
 import { PisoTecho } from "@/components/PisoTecho";
 import { PerfilEdadTerritorio } from "@/components/PerfilEdadTerritorio";
 import { Ayuda } from "@/components/Ayuda";
+import { ResumenPantalla } from "@/components/ResumenPantalla";
 import { fmt, pct } from "@/lib/format";
 
 type Unidad = {
@@ -34,7 +35,7 @@ type Lectura = "candidatura" | "boleta" | "alcance" | "bloque";
 
 // Bloques de la pantalla, en orden, para el índice (cada uno lleva su id abajo)
 const INDICE: ItemIndice[] = [
-  { id: "lado", t: "Lado a lado" }, { id: "votacion", t: "Votación" }, { id: "electorado", t: "Electorado" }, { id: "piso-techo", t: "Piso y techo" },
+  { id: "en-resumen", t: "En resumen" }, { id: "lado", t: "Lado a lado" }, { id: "votacion", t: "Votación" }, { id: "electorado", t: "Electorado" }, { id: "piso-techo", t: "Piso y techo" },
   { id: "unidades", t: "Unidades ganadas" }, { id: "secciones", t: "Secciones" }, { id: "trayectoria", t: "Trayectoria" },
 ];
 
@@ -174,6 +175,38 @@ export default function ResultadosPorCargo() {
   const nivelTxt: Record<Nivel, string> = { estado: "Entidades", distrito: "Distritos federales", distrito_local: "Distritos locales", municipio: "Municipios" };
   const tituloReparto = reparto?.senado ? "Escaños de mayoría y primera minoría (aprox.)" : unidades ? `${nivelTxt[unidades.nivel]} ${unidades.nivel === "estado" ? "ganadas" : "ganados"}` : "";
 
+  // «En resumen»: frases con las cifras de abajo, siempre por candidatura (la lectura elegida solo cambia barras y trayectoria)
+  const resumen = (() => {
+    if (!r || !ind?.ganador) return [];
+    const cand = porCandidatura(r.partidos);
+    const comp = competitividad(ind.margen);
+    const donde = lugar === "Nacional" ? "en todo el país" : `en ${lugar}`;
+    const indPrev = prevR ? indicadores(porCandidatura(prevR.partidos)) : null;
+    // Misma fuerza si comparten algún partido (las coaliciones cambian de nombre entre elecciones)
+    const repite = indPrev?.ganador ? ind.ganador.split("-").some((t) => indPrev.ganador!.split("-").includes(t)) : null;
+    const ce = claseEnfoque(cand, enfoque), faltan = faltanParaGanar(cand, enfoque);
+    // Unidades ganadas por el bloque de la candidatura ganadora: la misma alianza va con nombres distintos según la unidad (PVEM-PT-Morena, Morena sola…)
+    const porBloqueU = new Map<string, number>();
+    for (const u of unidades?.unidades ?? []) if (u.ganador) { const k = bloqueDe(u.ganador, r.anio); porBloqueU.set(k, (porBloqueU.get(k) ?? 0) + 1); }
+    const totU = [...porBloqueU.values()].reduce((a, b) => a + b, 0);
+    const top = unidades && !reparto?.senado ? [...porBloqueU].sort((a, b) => b[1] - a[1])[0] : null;
+    const reñidas = unidades ? unidades.unidades.filter((u) => u.margen !== null && u.margen < 5).length : 0;
+    return [
+      { color: colorPartido(ind.ganador), texto: <><b>{nombreCandidatura(ind.ganador)}</b> ganó {donde} con <b>{pct(ind.pGanador)}</b> de los votos a candidaturas
+        {ind.segundo && ind.margen !== null && <>, <b>{ind.margen.toFixed(1)} puntos</b> arriba de {nombreCandidatura(ind.segundo)}</>}{comp && <>: {ETIQ_COMP[comp].t.toLowerCase()} ({ETIQ_COMP[comp].d})</>}.</> },
+      indPrev?.ganador && { color: repite ? "var(--azul)" : "var(--rose)", texto: repite
+        ? <>Repite la misma fuerza: en {prevR!.anio} ganó {nombreCandidatura(indPrev.ganador)}{indPrev.margen !== null && <> por {indPrev.margen.toFixed(1)} puntos</>}.</>
+        : <><b>Cambió de ganador</b>: en {prevR!.anio} había ganado {nombreCandidatura(indPrev.ganador)}.</> },
+      part !== null && { color: "var(--azul)", texto: <>Votó <b>{pct(part)}</b> de la lista nominal{partPrev !== null && Math.abs(part - partPrev) >= 0.1
+        ? <>, {part > partPrev ? "más" : "menos"} que en {prevR!.anio} ({pct(partPrev)})</> : null}.</> },
+      enfoque !== "general" && ce.clase && { color: enf.color, texto: ce.clase === "sin_candidatura" ? <>Desde <b style={{ color: enf.color }}>{enf.t}</b>: no tuvo candidatura aquí.</>
+        : ce.margen! >= 0 ? <>Desde <b style={{ color: enf.color }}>{enf.t}</b>: su candidatura ganó con {pct(ce.pct)}, <b>{ce.margen!.toFixed(1)} puntos</b> arriba de la mejor rival.</>
+        : <>Desde <b style={{ color: enf.color }}>{enf.t}</b>: su candidatura quedó a <b>{Math.abs(ce.margen!).toFixed(1)} puntos</b>{faltan !== null && <> ({fmt(faltan)} votos)</>} de ganar.</> },
+      top && unidades && { color: BLOQUES[top[0]]?.color ?? "var(--fg-mute)", texto: <><b>{BLOQUES[top[0]]?.nombre ?? top[0]}</b> ganó <b>{top[1]} de {totU}</b> {nivelTxt[unidades.nivel].toLowerCase()}
+        {reñidas > 0 && <>; {reñidas === 1 ? "una se decidió" : `${reñidas} se decidieron`} por menos de 5 puntos</>}.</> },
+    ];
+  })();
+
   return (
     <>
       <header className="space-y-1.5">
@@ -218,6 +251,10 @@ export default function ResultadosPorCargo() {
       {/* 2b. Dos o más territorios: lado a lado, y cuál se ve en detalle */}
       <div id="lado" className="empty:hidden">{ts.length > 1 && anio && cat && <LadoALadoResultados ts={ts} cargoId={cargoId} anio={anio} lectura={lectura} estados={cat.estados} onVer={setIDet} />}</div>
       {cat && <ElegirDetalle ts={ts} i={Math.min(iDet, ts.length - 1)} onChange={setIDet} estados={cat.estados} />}
+
+      {/* 2c. En resumen: lo que dicen las cifras, antes del detalle */}
+      {serie && r && <ResumenPantalla titulo={`En resumen · ${lugar} · ${anio}`} frases={resumen}
+        nota="Frases calculadas con las cifras de esta pantalla, siempre por candidatura (cada partido sumado a la coalición que lo postuló, inferida de la boleta). «Misma fuerza» = el ganador comparte algún partido con el de la elección anterior. Las unidades ganadas se cuentan por bloque. Lectura analítica, no oficial." />}
 
       {/* 3. Resultado del territorio en el año */}
       {!serie ? <Cargando alto={240} /> : !r ? (
