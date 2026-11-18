@@ -13,11 +13,13 @@ import { Ayuda } from "@/components/Ayuda";
 const ORDEN_CABEZA = ["morena", "pan", "pri", "prd", "mc", "conve", "pvem", "pt"] as const;
 const NOMBRE: Record<string, string> = { pri: "PRI", pan: "PAN", prd: "PRD", morena: "Morena", mc: "MC", pvem: "PVEM", pt: "PT", ind: "Independiente", otros: "Otros" };
 const GRIS = "#9aa0a6";
-/** Partido que encabeza la candidatura: el de más votos propios dentro de la coalición en esa elección (PAN-PRI-PRD es PRI en Coahuila 2023
- *  y PAN en la presidencia 2024). Sin votos propios de ningún integrante, el primero de Morena, PAN, PRI, PRD, MC, PVEM, PT. Sin anacronismos (PT 1994 es PT). */
+/** Partido que encabeza la candidatura: en una coalición con PAN y PRI, siempre PRI (decisión del usuario); en las demás, el integrante con
+ *  más votos propios en esa elección. Sin votos propios de ningún integrante, el primero de Morena, PAN, PRI, PRD, MC, PVEM, PT. Sin anacronismos (PT 1994 es PT). */
 function cabeza(k: string, partidos: Record<string, number>): string {
   const ts = k.split("-");
   if (ts.length === 1) return k.startsWith("ind") ? "ind" : k === "conve" ? "mc" : k;
+  // Coalición de PAN y PRI (PAN-PRI-PRD, PAN-PRI): siempre PRI, por decisión del usuario
+  if (ts.includes("pan") && ts.includes("pri")) return "pri";
   const mejor = ts.map((x) => [x, partidos[x] ?? 0] as const).sort((a, b) => b[1] - a[1])[0];
   if (mejor[1] > 0) return mejor[0] === "conve" ? "mc" : mejor[0];
   const t = new Set(ts);
@@ -160,7 +162,7 @@ export function CarreraBarras({ serie, cargo, cargoNombre, lugar, bloque }: { se
       </div>
       <p className="text-xs" style={{ color: "var(--fg-mute)" }}>
         {bloque ? "Cada barra es un bloque (agrupación analítica de las coaliciones de cada elección, no oficial). "
-          : "Cada barra es el partido que encabeza la candidatura: en una coalición, el integrante con más votos propios en esa elección; debajo, la coalición de ese año. Las fuerzas que nunca llegan a 2% van en «Otros». "}
+          : "Cada barra es el partido que encabeza la candidatura: en una coalición, el integrante con más votos propios en esa elección (la de PAN y PRI va siempre como PRI); debajo, la coalición de ese año. Las fuerzas que nunca llegan a 2% van en «Otros». "}
         Votos por candidatura inferida de la boleta, sin nulos ni no registrados. Entre una elección y otra las barras se mueven solo para animar: no hay datos intermedios. Lectura analítica, no oficial.
       </p>
     </section>

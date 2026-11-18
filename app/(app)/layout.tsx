@@ -104,7 +104,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       className="nav-item" style={{ ["--nav-color" as string]: color }}>
                       <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full transition-opacity" style={{ background: color, opacity: a ? 1 : 0 }} />
                       <I size={22} strokeWidth={2} />
-                      {lateral && <span className="truncate">{label}</span>}
+                      {/* Nombre completo: si no cabe en una línea pasa a la segunda («Distritos y circunscripciones»), nunca con «…» */}
+                      {lateral && <span className="min-w-0 leading-snug">{label}</span>}
                     </Link>
                   );
                 })}
