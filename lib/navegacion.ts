@@ -30,7 +30,7 @@ export const GRUPOS: { titulo: string; items: Pantalla[] }[] = [
     { href: "/historico", label: "Evolución y comparación", icon: LineChart, color: "#7c3aed",
       resumen: "Cómo ha cambiado un cargo en un territorio, una elección frente a otra, y territorios o años distintos lado a lado.",
       preguntas: ["¿Qué fuerza creció o cayó desde la elección anterior?", "¿Cómo se compara 2018 con 2024 aquí?", "¿En qué municipio se votó más?"],
-      contiene: ["Trayectoria de cada partido o bloque a lo largo de los años", "Elección contra elección: diferencias por partido",
+      contiene: ["Carrera de barras animada: el reparto del voto elección por elección", "Trayectoria de cada partido o bloque a lo largo de los años", "Elección contra elección: diferencias por partido",
         "Varios territorios y años: municipios o estados lado a lado, cada uno en el año que elijas (antes «Comparar territorios»)"] },
   ] },
   { titulo: "¿Dónde trabajar?", items: [

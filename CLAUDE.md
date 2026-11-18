@@ -46,7 +46,10 @@ app/(app)/            pantallas (cliente)
                       competitividad, serie y piso/techo. Electorado por edad y sexo del territorio en el corte más reciente
                       (components/PerfilEdadTerritorio, API perfil-edad): pirámide, frente a su estado y al país, y cambio desde el corte
                       de la elección. En un distrito federal, las elecciones de otras distritaciones salen «reconstruidas» (lib/reconstruccion.ts)
-  historico/          «Evolución y comparación», dos pestañas: «Un territorio en el tiempo» (trayectoria y elección A vs B) y «Varios territorios
+  historico/          «Evolución y comparación», dos pestañas: «Un territorio en el tiempo» (carrera de barras animada —components/CarreraBarras, decisión
+                      del usuario: sigue el cargo y el territorio de la pantalla; cada barra es el partido que encabeza la candidatura, en una coalición el
+                      integrante con más votos propios en esa elección, o el bloque con la lectura por bloque; cargo local en todo el país pide una entidad;
+                      avisa de presidencia 1976 y 1988, donde la fuente no registra al FDN—, trayectoria y elección A vs B) y «Varios territorios
                       y años» (components/CompararTerritorios: cada serie es un territorio en un año; se abre con #comparar)
   municipios/         solo redirige a /historico#comparar (antes «Comparar territorios»; ya no está en el menú)
   estados/            mapa nacional por entidad. «Colorear por» (lib/mapa METRICAS): quién ganó, qué tan reñido, campo de batalla

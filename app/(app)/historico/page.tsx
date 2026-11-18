@@ -10,6 +10,7 @@ import { Cargando } from "@/components/Kpi";
 import { CON_DISTRITO, ElegirDetalle, FiltroTerritorio, SIN_FILTRO, claveTerr, nombreCorto, nombreTerr, territorios, type FiltroT, type Terr } from "@/components/FiltroTerritorio";
 import { CARGOS, cargo as cargoDe, type CargoId } from "@/lib/cargos";
 import { SelectorCargo } from "@/components/SelectorCargo";
+import { CarreraBarras } from "@/components/CarreraBarras";
 import { alcance, colorPartido } from "@/lib/partidos";
 import { BLOQUES, familia, indicadores, nombreCandidatura, porBloque, porCandidatura } from "@/lib/analisis";
 import { fmt, pct } from "@/lib/format";
@@ -75,8 +76,11 @@ export default function Historico() {
   function cambiarModo(m: "tiempo" | "comparar") { setModo(m); history.replaceState(null, "", m === "comparar" ? "#comparar" : location.pathname); }
 
   useEffect(() => {
+    // Solo la respuesta de la última consulta: una anterior que llegue tarde (p. ej. la serie por omisión) no la pisa
+    let vivo = true;
     setSerie(null);
-    api<{ elecciones: Resultado[] }>(`/api/presidencial?${consulta(cargoId, terr, aB)}`).then((d) => setSerie(d.elecciones.filter((x) => !x.extraordinaria && Object.keys(x.partidos).length))).catch(() => setSerie([]));
+    api<{ elecciones: Resultado[] }>(`/api/presidencial?${consulta(cargoId, terr, aB)}`).then((d) => vivo && setSerie(d.elecciones.filter((x) => !x.extraordinaria && Object.keys(x.partidos).length))).catch(() => vivo && setSerie([]));
+    return () => { vivo = false; };
   }, [cargoId, claveTerr(terr)]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (ts.length < 2) { setLado(null); return; }
@@ -225,6 +229,11 @@ export default function Historico() {
 
       {!serie ? <Cargando alto={360} /> : serie.length === 0 ? <p className="material p-6">No hay resultados de {c.nombre.toLowerCase()} en {lugar}.</p> : (
         <>
+          {/* Carrera de barras: el reparto elección por elección, animado. Cargo local en todo el país: cada año suma estados distintos, se pide una entidad */}
+          {c.ambito === "local" && !terr.estado
+            ? <p className="material p-5 text-sm" style={{ color: "var(--fg-soft)" }}>La carrera de barras de {c.nombre.toLowerCase()} necesita una entidad: cada estado vota en su propio calendario y la suma de todo el país cambia de estados cada año. Elige una entidad arriba.</p>
+            : <CarreraBarras serie={serie} cargo={cargoId} cargoNombre={c.nombre} lugar={lugar} bloque={lectura === "bloque"} />}
+
           {/* Línea histórica con periodo y selector de fuerzas */}
           <section className="material p-5 space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
